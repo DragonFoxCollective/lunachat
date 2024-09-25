@@ -1,20 +1,83 @@
-<html>
+<html
+	style="background: url(checker.png) repeat; background-color: #03a9f488; animation: scrolling 15s linear infinite;">
 
 <head>
+	<meta charset="utf-8" />
 	<title>Dragon & Fox Collective</title>
+	<meta name="description" content="An indie studio developing the Homestuck fangame SBEPIS">
+	<meta name="keywords" content="dragon fox collective,homestuck,SBURB,SBEPIS,game,simulator">
+	<link rel="shortcut icon" type="image/png" href="https://dragon-fox.com/favicon.ico">
+
+	<style>
+		@keyframes scrolling {
+			0% {
+				background-position: 0px 0px
+			}
+
+			100% {
+				background-position: -100px -100px
+			}
+		}
+
+		@font-face {
+			font-family: 'Cascadia Code';
+			src: url(CascadiaCode.ttf);
+		}
+
+		html {
+			font-family: 'Cascadia Code', 'Courier New', Courier, monospace;
+		}
+
+		ul {
+			list-style: none;
+		}
+
+		li::before {
+			content: '';
+			display: inline-block;
+			height: 1em;
+			width: 1em;
+			background-image: url(bitflower.gif);
+			background-size: contain;
+			margin-right: 0.5em;
+		}
+
+		.card {
+			background-color: white;
+			margin: 10px;
+			padding: 10px;
+			border: #03a9f4 solid 2px;
+			border-radius: 10px;
+		}
+	</style>
 </head>
 
 <body>
-	<p>bepis</p>
-	<p>We make funny homestuck fangame</p>
-	<p>
-		<a href="https://www.youtube.com/@DragonFoxCollective">YouTube</a>
-		<a href="https://discord.gg/qHREQu7Zxm">Discord</a>
-		<a href="https://ko-fi.com/dragonfoxcollective">Ko-Fi</a>
-		<a href="https://github.com/Dragon-Fox-Collective/SBEPIS">GitHub</a>
-		<a href="https://x.com/DragonFoxColl">Twitter (definitely going to be inactive)</a>
-	</p>
-	<p>Contact info (probably): <a href="mailto:contact@dragon-fox.com">contact@dragon-fox.com</a></p>
+	<header class="card"
+		style="display: flex; width: 50%; margin: 0 auto; border-width: 5px; align-items: stretch; flex-wrap: nowrap;">
+		<div>
+			<img src="banner-left.png" alt="Dragon banner" style="width: 200px;" />
+		</div>
+		<div
+			style="flex-grow: 1; color: black; text-align: center; font-size: 48pt; display: flex; justify-content: center;">
+			<p>Dragon & Fox <br> Collective</p>
+		</div>
+		<div>
+			<img src="banner-right.png" alt="Fox banner" style="width: 200px" />
+		</div>
+	</header>
+
+	<article class="card">
+		<p>We make funny homestuck sbepis fangame</p>
+		<ul>
+			<li><a href="https://www.youtube.com/@DragonFoxCollective">YouTube</a></li>
+			<li><a href="https://discord.gg/qHREQu7Zxm">Discord</a></li>
+			<li><a href="https://ko-fi.com/dragonfoxcollective">Ko-Fi</a></li>
+			<li><a href="https://github.com/Dragon-Fox-Collective/SBEPIS">GitHub</a></li>
+			<li><a href="https://x.com/DragonFoxColl">Twitter (ew)</a></li>
+			<li>Contact info (probably): <a href="mailto:contact@dragon-fox.com">contact@dragon-fox.com</a></li>
+		</ul>
+	</article>
 </body>
 
 </html>
