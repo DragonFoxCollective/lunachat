@@ -1,5 +1,5 @@
 <html
-	style="background: url(checker.png) repeat; background-color: #03a9f488; animation: scrolling 15s linear infinite;">
+	style="background: url(checker.png) repeat; background-color: #03a9f411; animation: scrolling 15s linear infinite;">
 
 <head>
 	<meta charset="utf-8" />
@@ -38,12 +38,9 @@
 			src: url(CascadiaCode.ttf);
 		}
 
-		html {
-			font-family: 'Cascadia Code', 'Courier New', Courier, monospace;
-		}
-
 		ul {
 			list-style: none;
+			padding: 0;
 		}
 
 		li::before {
@@ -56,24 +53,32 @@
 			margin-right: 0.5em;
 		}
 
-		.card {
-			background-color: white;
-			margin: 10px;
+		li::after {
+			content: '';
+			display: inline-block;
+			height: 1em;
+			width: 1em;
+			background-image: url(bitflower.gif);
+			background-size: contain;
+			margin-left: 0.5em;
+		}
+
+		header,
+		article,
+		footer {
 			padding: 10px;
-			border: #03a9f4 solid 2px;
-			border-radius: 10px;
+			text-align: center;
 		}
 	</style>
 </head>
 
 <body>
-	<header class="card"
-		style="display: flex; width: 50%; margin: 0 auto; border-width: 5px; align-items: stretch; flex-wrap: nowrap;">
+	<header style="display: flex; align-items: stretch; flex-wrap: nowrap; justify-content: center;">
 		<div>
 			<img src="banner-left.png" alt="Dragon banner" style="width: 200px;" />
 		</div>
 		<div
-			style="flex-grow: 1; color: black; text-align: center; font-size: 48pt; display: flex; justify-content: center;">
+			style="color: black; text-align: center; font-size: 48pt; display: flex; justify-content: center; font-family: 'Cascadia Code';">
 			<p style="margin: auto;">Dragon & Fox <br> Collective</p>
 		</div>
 		<div>
@@ -81,17 +86,25 @@
 		</div>
 	</header>
 
-	<article class="card">
-		<p>We make funny homestuck sbepis fangame</p>
+	<article>
+		<p>we make funny homestuck sbepis fangame</p>
+
+		<iframe width="560" height="315" src="https://www.youtube.com/embed/hAte-zC0hRk?si=TlJ38Q0mVr55hQ2T"
+			title="YouTube video player" frameborder="0"
+			allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+			referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+	</article>
+
+	<footer>
+		<h1>call us!!</h1>
 		<ul>
-			<li><a href="https://www.youtube.com/@DragonFoxCollective">YouTube</a></li>
 			<li><a href="https://discord.gg/qHREQu7Zxm">Discord</a></li>
+			<li><a href="https://www.youtube.com/@DragonFoxCollective">YouTube</a></li>
 			<li><a href="https://ko-fi.com/dragonfoxcollective">Ko-Fi</a></li>
 			<li><a href="https://github.com/Dragon-Fox-Collective/SBEPIS">GitHub</a></li>
-			<li><a href="https://x.com/DragonFoxColl">Twitter (ew)</a></li>
-			<li>Contact info (probably): <a href="mailto:contact@dragon-fox.com">contact@dragon-fox.com</a></li>
+			<li><a href="mailto:contact@dragon-fox.com">Email</a></li>
 		</ul>
-	</article>
+	</footer>
 </body>
 
 </html>
