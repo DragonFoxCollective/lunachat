@@ -1,5 +1,4 @@
-<html
-	style="background: url(checker.png) repeat; background-color: #03a9f411; animation: scrolling 15s linear infinite;">
+<html>
 
 <head>
 	<meta charset="utf-8" />
@@ -14,6 +13,7 @@
 	<meta property="og:title" content="Dragon & Fox Collective" />
 	<meta property="og:description" content="An indie studio developing the Homestuck fangame SBEPIS" />
 	<meta property="og:image" content="https://dragon-fox.com/banner.png" />
+	<meta property="og:site_name" content="Dragon & Fox Collective" />
 
 	<meta property="twitter:card" content="summary_large_image" />
 	<meta property="twitter:url" content="https://dragon-fox.com/" />
@@ -21,74 +21,32 @@
 	<meta property="twitter:description" content="An indie studio developing the Homestuck fangame SBEPIS" />
 	<meta property="twitter:image" content="https://dragon-fox.com/banner.png" />
 
-
-	<style>
-		@keyframes scrolling {
-			0% {
-				background-position: 0px 0px
-			}
-
-			100% {
-				background-position: -100px -100px
-			}
-		}
-
-		@font-face {
-			font-family: 'Cascadia Code';
-			src: url(CascadiaCode.ttf);
-		}
-
-		ul {
-			list-style: none;
-			padding: 0;
-		}
-
-		li::before {
-			content: '';
-			display: inline-block;
-			height: 1em;
-			width: 1em;
-			background-image: url(bitflower.gif);
-			background-size: contain;
-			margin-right: 0.5em;
-		}
-
-		li::after {
-			content: '';
-			display: inline-block;
-			height: 1em;
-			width: 1em;
-			background-image: url(bitflower.gif);
-			background-size: contain;
-			margin-left: 0.5em;
-		}
-
-		header,
-		article,
-		footer {
-			padding: 10px;
-			text-align: center;
-		}
-	</style>
+	<link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-	<header style="display: flex; align-items: stretch; flex-wrap: nowrap; justify-content: center;">
-		<div>
-			<img src="banner-left.png" alt="Dragon banner" style="width: 200px;" />
+	<header>
+		<div class="header-title">
+			<div class="header-image">
+				<img src="banner-left.png" alt="Dragon banner" />
+			</div>
+			<div class="header-text">
+				<p>Dragon & Fox <br> Collective</p>
+			</div>
+			<div class="header-image">
+				<img src="banner-right.png" alt="Fox banner" />
+			</div>
 		</div>
-		<div
-			style="color: black; text-align: center; font-size: 48pt; display: flex; justify-content: center; font-family: 'Cascadia Code';">
-			<p style="margin: auto;">Dragon & Fox <br> Collective</p>
-		</div>
-		<div>
-			<img src="banner-right.png" alt="Fox banner" style="width: 200px" />
-		</div>
+
+		<nav>
+			<a href="index.html">Home</a>
+			<a href="showcase.html">Showcase</a>
+			<a href="blog.html">Blog</a>
+		</nav>
 	</header>
 
 	<article>
-		<p>we make funny homestuck sbepis fangame !! <img src="sbepis.gif" alt="SBEPIS logo"
-				style="width: 2em; vertical-align: middle;" /></p>
+		<p>we make funny homestuck sbepis fangame !! <img src="sbepis.gif" alt="SBEPIS logo" class="inline-image" /></p>
 
 		<iframe width="560" height="315" src="https://www.youtube.com/embed/hAte-zC0hRk?si=TlJ38Q0mVr55hQ2T"
 			title="YouTube video player" frameborder="0"

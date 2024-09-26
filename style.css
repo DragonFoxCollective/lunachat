@@ -1,0 +1,81 @@
+@keyframes scrolling {
+	0% {
+		background-position: 0px 0px
+	}
+
+	100% {
+		background-position: -100px -100px
+	}
+}
+
+@font-face {
+	font-family: 'Cascadia Code';
+	src: url(CascadiaCode.ttf);
+}
+
+html {
+	background: url(checker.png) repeat;
+	background-color: #03a9f411;
+	animation: scrolling 15s linear infinite;
+}
+
+.header-title {
+	display: flex;
+	align-items: stretch;
+	flex-wrap: nowrap;
+	justify-content: center;
+}
+
+.header-image>img {
+	width: 200px;
+}
+
+.header-text {
+	color: black;
+	text-align: center;
+	font-size: 48pt;
+	display: flex;
+	justify-content: center;
+	font-family: 'Cascadia Code';
+}
+
+.header-text>p {
+	margin: auto;
+}
+
+ul {
+	list-style: none;
+	padding: 0;
+}
+
+li::before {
+	content: '';
+	display: inline-block;
+	height: 1em;
+	width: 1em;
+	background-image: url(bitflower.gif);
+	background-size: contain;
+	margin-right: 0.5em;
+}
+
+li::after {
+	content: '';
+	display: inline-block;
+	height: 1em;
+	width: 1em;
+	background-image: url(bitflower.gif);
+	background-size: contain;
+	margin-left: 0.5em;
+}
+
+header,
+article,
+footer {
+	padding: 10px;
+	text-align: center;
+}
+
+.inline-image {
+	width: 2em;
+	vertical-align: middle;
+}
