@@ -57,7 +57,7 @@ footer {
 .post-profile img {
 	width: 128px;
 	height: 128px;
-	object-fit: cover;
+	object-fit: contain;
 }
 
 .post-body {
