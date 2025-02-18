@@ -51,6 +51,7 @@ footer {
 .post-profile {
 	padding-right: 10px;
 	border-right: black 1px solid;
+	width: 128px;
 	flex-grow: 0;
 }
 
