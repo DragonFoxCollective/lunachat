@@ -1,12 +1,15 @@
 use askama::Template;
 use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse, Response};
+use serde::{Deserialize, Serialize};
 
 #[derive(Template)]
 #[template(path = "index.html")]
-pub struct IndexTemplate;
+pub struct IndexTemplate {
+    pub posts: String,
+}
 
-#[derive(Template, Clone)]
+#[derive(Template, Clone, Serialize, Deserialize)]
 #[template(path = "post.html")]
 pub struct PostTemplate {
     pub author: String,
