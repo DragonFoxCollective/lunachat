@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<title>Htmx App</title>
+	<script src="/public/htmx.min.js"></script>
+	<script src="/public/sse.js"></script>
+	<link rel="stylesheet" href="/public/styles.css">
+</head>
+
+<body>
+	<header>
+		<div class="header-title">
+			<div class="header-text">
+				<p>Dragon & Fox <br> Collective</p>
+			</div>
+		</div>
+	</header>
+
+	<hr />
+
+	<article hx-ext="sse" sse-connect="/sse/posts" sse-swap="message" hx-swap="beforeend">
+		<button hx-post="/clicked" hx-trigger="click">
+			Click Me
+		</button>
+	</article>
+</body>
+
+</html>

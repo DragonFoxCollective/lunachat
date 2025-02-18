@@ -1,0 +1,60 @@
+@keyframes scrolling {
+	0% {
+		background-position: 0px 0px
+	}
+
+	100% {
+		background-position: -100px -100px
+	}
+}
+
+html {
+	background: url(/public/checker.png) repeat;
+	background-color: #03a9f411;
+	animation: scrolling 15s linear infinite;
+}
+
+.header-title {
+	display: flex;
+	align-items: stretch;
+	flex-wrap: nowrap;
+	justify-content: center;
+}
+
+.header-text {
+	color: black;
+	text-align: center;
+	font-size: 48pt;
+	display: flex;
+	justify-content: center;
+}
+
+.header-text>p {
+	margin: auto;
+}
+
+header,
+article,
+footer {
+	padding: 10px;
+}
+
+.post {
+	margin: 10px;
+	padding: 10px;
+	border: 1px solid black;
+	border-radius: 10px;
+	display: flex;
+	flex-direction: row;
+}
+
+.post-profile {
+	padding-right: 10px;
+	border-right: black 1px solid;
+	flex-grow: 0;
+}
+
+.post-body {
+	padding-left: 10px;
+	flex-grow: 1;
+}
