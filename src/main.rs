@@ -6,15 +6,16 @@ use axum::response::sse::Event;
 use axum::response::Sse;
 use axum::routing::{get, post};
 use axum::{Form, Router};
-use derive_more::{Deref, DerefMut};
 use error::Error;
 use futures::{stream, Stream};
-use sled::{IVec, Subscriber, Tree};
+use sled::{IVec, Subscriber};
+use state::{AppState, Posts, Sanitizer};
 use templates::{HtmlTemplate, IndexTemplate, PostTemplate};
 use tower_http::services::ServeDir;
 use tracing::debug;
 
 mod error;
+mod state;
 mod templates;
 
 #[tokio::main]
@@ -26,19 +27,22 @@ async fn main() {
     let db = sled::open("db").unwrap();
     let posts = Posts(db.open_tree("posts").unwrap());
 
+    let mut builder = ammonia::Builder::new();
+    builder.add_generic_attributes(["style"]);
+    let sanitizer = Sanitizer::new(builder);
+
+    let state = AppState { posts, sanitizer };
+
     let app = Router::new()
         .route("/", get(root))
         .route("/create-post", post(create_post))
         .route("/sse/posts", get(sse_handler))
-        .with_state(posts)
+        .with_state(state)
         .nest_service("/public", ServeDir::new("public"));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
-
-#[derive(Clone, Deref, DerefMut)]
-struct Posts(pub Tree);
 
 async fn root(State(posts): State<Posts>) -> Result<HtmlTemplate<IndexTemplate>, Error> {
     let posts = posts
@@ -52,7 +56,8 @@ async fn root(State(posts): State<Posts>) -> Result<HtmlTemplate<IndexTemplate>,
 
 async fn create_post(
     State(posts): State<Posts>,
-    Form(post): Form<PostTemplate>,
+    State(sanitizer): State<Sanitizer>,
+    Form(mut post): Form<PostTemplate>,
 ) -> Result<(), Error> {
     debug!("Post created!");
 
@@ -65,6 +70,8 @@ async fn create_post(
         None => 0,
     };
     let this_id = last_id + 1;
+
+    post.body = sanitizer.clean(&post.body).to_string();
 
     posts.insert(this_id.to_be_bytes(), bincode::serialize(&post)?)?;
     posts.flush_async().await?;
