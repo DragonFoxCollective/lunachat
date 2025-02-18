@@ -20,12 +20,16 @@
 
 	<hr />
 
-	<article hx-ext="sse" sse-connect="/sse/posts" sse-swap="message" hx-swap="beforeend">
-		<button hx-post="/clicked" hx-trigger="click">
-			Click Me
-		</button>
+	<article id="posts" hx-ext="sse" sse-connect="/sse/posts" sse-swap="message" hx-swap="beforeend">
 		{{ posts|safe }}
 	</article>
+
+	<form hx-post="/create-post" hx-target="#posts" hx-swap="beforeend">
+		<input type="text" name="author" placeholder="Your name" required>
+		<input type="text" name="profile_picture" placeholder="Profile picture URL" required>
+		<input type="text" name="body" placeholder="What's on your mind?" required>
+		<button type="submit">Post</button>
+	</form>
 </body>
 
 </html>

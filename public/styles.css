@@ -54,6 +54,12 @@ footer {
 	flex-grow: 0;
 }
 
+.post-profile img {
+	width: 128px;
+	height: 128px;
+	object-fit: cover;
+}
+
 .post-body {
 	padding-left: 10px;
 	flex-grow: 1;

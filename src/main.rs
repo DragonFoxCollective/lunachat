@@ -1,10 +1,12 @@
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use askama::Template;
+use axum::extract::State;
 use axum::response::sse::Event;
 use axum::response::Sse;
 use axum::routing::{get, post};
-use axum::Router;
+use axum::{Form, Router};
+use derive_more::{Deref, DerefMut};
 use error::Error;
 use futures::{stream, Stream};
 use sled::{IVec, Subscriber, Tree};
@@ -22,24 +24,23 @@ async fn main() {
         .init();
 
     let db = sled::open("db").unwrap();
-    let posts = db.open_tree("posts").unwrap();
-    let posts_clicked = posts.clone();
-    let posts_sse = posts.clone();
+    let posts = Posts(db.open_tree("posts").unwrap());
 
     let app = Router::new()
-        .route("/", get(move || root(posts.clone())))
-        .route("/clicked", post(move || clicked(posts_clicked.clone())))
-        .route(
-            "/sse/posts",
-            get(move || sse_handler(posts_sse.watch_prefix([]))),
-        )
+        .route("/", get(root))
+        .route("/create-post", post(create_post))
+        .route("/sse/posts", get(sse_handler))
+        .with_state(posts)
         .nest_service("/public", ServeDir::new("public"));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn root(posts: Tree) -> Result<HtmlTemplate<IndexTemplate>, Error> {
+#[derive(Clone, Deref, DerefMut)]
+struct Posts(pub Tree);
+
+async fn root(State(posts): State<Posts>) -> Result<HtmlTemplate<IndexTemplate>, Error> {
     let posts = posts
         .into_iter()
         .values()
@@ -49,8 +50,11 @@ async fn root(posts: Tree) -> Result<HtmlTemplate<IndexTemplate>, Error> {
     Ok(HtmlTemplate(IndexTemplate { posts }))
 }
 
-async fn clicked(posts: Tree) -> Result<(), Error> {
-    debug!("Button clicked");
+async fn create_post(
+    State(posts): State<Posts>,
+    Form(post): Form<PostTemplate>,
+) -> Result<(), Error> {
+    debug!("Post created!");
 
     let last_post = posts.last().unwrap();
     let last_id = match last_post {
@@ -62,23 +66,16 @@ async fn clicked(posts: Tree) -> Result<(), Error> {
     };
     let this_id = last_id + 1;
 
-    posts.insert(
-        this_id.to_be_bytes(),
-        bincode::serialize(&PostTemplate {
-            author: "Bepisman".to_string(),
-            profile_picture: "/public/checker.png".to_string(),
-            body: format!("You clicked the button! {:?}", Instant::now()),
-        })?,
-    )?;
-
+    posts.insert(this_id.to_be_bytes(), bincode::serialize(&post)?)?;
     posts.flush_async().await?;
 
     Ok(())
 }
 
-async fn sse_handler(sub: Subscriber) -> Sse<impl Stream<Item = Result<Event, Error>>> {
+async fn sse_handler(State(posts): State<Posts>) -> Sse<impl Stream<Item = Result<Event, Error>>> {
     debug!("SSE connection established");
 
+    let sub = posts.watch_prefix([]);
     let stream = stream::unfold(sub, move |mut sub| async {
         let result = extract_template(&mut sub).await?;
         Some((result, sub))
