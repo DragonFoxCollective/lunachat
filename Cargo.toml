@@ -6,11 +6,14 @@ edition = "2021"
 [dependencies]
 ammonia = "4.0.0"
 askama = "0.12.1"
+async-trait = "0.1.86"
 axum = { version = "0.8.1", features = ["ws"] }
+axum-login = "0.17.0"
 bincode = "1.3.3"
 derive_more = { version = "2.0.1", features = ["deref", "deref_mut"] }
 futures = "0.3.31"
 itertools = "0.14.0"
+password-auth = "1.0.0"
 serde = { version = "1.0.217", features = ["derive"] }
 sled = "0.34.7"
 tokio = { version = "1.43.0", features = ["full"] }

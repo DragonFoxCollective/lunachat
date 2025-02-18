@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 #[template(path = "index.html")]
 pub struct IndexTemplate {
     pub posts: String,
+    pub can_post: bool,
 }
 
 #[derive(Template, Clone, Serialize, Deserialize)]

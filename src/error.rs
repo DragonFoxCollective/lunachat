@@ -6,12 +6,15 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use tracing::error;
 
+pub type Result<T> = std::result::Result<T, Error>;
+
 #[derive(Debug)]
 pub enum Error {
     TryFromSlice(TryFromSliceError),
     Bincode(bincode::Error),
     Sled(sled::Error),
     Askama(askama::Error),
+    TokioJoin(tokio::task::JoinError),
 }
 
 impl Display for Error {
@@ -23,6 +26,7 @@ impl Display for Error {
             }
             Error::Sled(err) => write!(f, "Failed to interact with the database: {}", err),
             Error::Askama(err) => write!(f, "Failed to render template: {}", err),
+            Error::TokioJoin(err) => write!(f, "Failed to join tokio task: {}", err),
         }
     }
 }
@@ -34,6 +38,7 @@ impl error::Error for Error {
             Error::Bincode(err) => Some(err),
             Error::Sled(err) => Some(err),
             Error::Askama(err) => Some(err),
+            Error::TokioJoin(err) => Some(err),
         }
     }
 }
@@ -67,5 +72,11 @@ impl From<sled::Error> for Error {
 impl From<askama::Error> for Error {
     fn from(err: askama::Error) -> Self {
         Error::Askama(err)
+    }
+}
+
+impl From<tokio::task::JoinError> for Error {
+    fn from(err: tokio::task::JoinError) -> Self {
+        Error::TokioJoin(err)
     }
 }

@@ -24,6 +24,7 @@
 		{{ posts|safe }}
 	</article>
 
+	{% if can_post %}
 	<form hx-post="/create-post" hx-target="#posts" hx-swap="beforeend"
 		hx-on::after-request="if(event.detail.successful) this.reset()">
 		<input type="text" name="author" placeholder="Your name" required>
@@ -31,6 +32,7 @@
 		<input type="text" name="body" placeholder="What's on your mind?" required>
 		<button type="submit">Post</button>
 	</form>
+	{% endif %}
 </body>
 
 </html>
