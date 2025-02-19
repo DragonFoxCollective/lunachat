@@ -4,18 +4,26 @@ use axum::response::{Html, IntoResponse, Response};
 use serde::{Deserialize, Serialize};
 
 #[derive(Template)]
-#[template(path = "index.html")]
+#[template(path = "index.html.jinja")]
 pub struct IndexTemplate {
+    pub username: Option<String>,
     pub posts: String,
     pub can_post: bool,
 }
 
 #[derive(Template, Clone, Serialize, Deserialize)]
-#[template(path = "post.html")]
+#[template(path = "post.html.jinja")]
 pub struct PostTemplate {
     pub author: String,
     pub profile_picture: String,
     pub body: String,
+}
+
+#[derive(Template)]
+#[template(path = "login.html.jinja")]
+pub struct LoginTemplate {
+    pub error: Option<String>,
+    pub next: Option<String>,
 }
 
 /// A wrapper type that we'll use to encapsulate HTML parsed by askama into valid HTML for axum to serve.

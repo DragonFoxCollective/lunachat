@@ -93,7 +93,7 @@ where
 
     pub fn get(&self, key: Key) -> Result<Option<Item>> {
         let item = ok_some!(self.0.get::<IVec>(key.into()));
-        Ok(bincode::deserialize(&item)?)
+        Ok(Some(bincode::deserialize(&item)?))
     }
 
     pub fn iter(&self) -> DbTreeIter<Item> {
@@ -190,10 +190,24 @@ impl UsersUsernameMap {
         Self { usernames, users }
     }
 
-    pub fn get(&self, username: String) -> Result<Option<User>> {
+    pub fn get(&self, username: &String) -> Result<Option<User>> {
         let id = ok_some!(self.usernames.get(username));
-        let user = ok_some!(self.users.get(id));
-        Ok(bincode::deserialize(&user)?)
+        let user_data = ok_some!(self.users.get(id));
+        let user = bincode::deserialize(&user_data)?;
+        Ok(Some(user))
+    }
+
+    pub fn insert(&self, user: User) -> Result<()> {
+        self.usernames.insert(user.username.clone(), user.key)?;
+        let user_data = bincode::serialize(&user)?;
+        self.users.insert(IVec::from(user.key), user_data.clone())?;
+        Ok(())
+    }
+
+    pub async fn flush_async(&self) -> Result<()> {
+        self.usernames.flush_async().await?;
+        self.users.flush_async().await?;
+        Ok(())
     }
 }
 

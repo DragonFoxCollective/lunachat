@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<title>Htmx App</title>
+	<script src="/public/htmx.min.js"></script>
+	<script src="/public/sse.js"></script>
+	<link rel="stylesheet" href="/public/styles.css">
+</head>
+
+<body>
+	<header>
+		<div class="header-title">
+			<div class="header-text">
+				<p>Dragon & Fox <br> Collective</p>
+			</div>
+		</div>
+
+		{% block logged_in_as %}
+		{% if let Some(username) = username %}
+		<div class="header-user">
+			<p>Logged in as: {{ username }}</p>
+			<a href="/logout">Logout</a>
+		</div>
+		{% else %}
+		<div class="header-user">
+			<a href="/login">Login</a>
+		</div>
+		{% endif %}
+		{% endblock %}
+
+		<hr />
+	</header>
+
+	{% block content %}{% endblock %}
+</body>
+
+</html>

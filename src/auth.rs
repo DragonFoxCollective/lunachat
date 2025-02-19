@@ -11,9 +11,19 @@ use crate::state::{Key, Users, UsersUsernameMap};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct User {
-    key: Key,
+    pub key: Key,
     pub username: String,
     password: String,
+}
+
+impl User {
+    pub fn new(key: Key, username: String, password: String) -> Self {
+        Self {
+            key,
+            username,
+            password,
+        }
+    }
 }
 
 // Here we've implemented `Debug` manually to avoid accidentally logging the
@@ -55,23 +65,16 @@ impl Backend {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize)]
 pub struct Credentials {
     pub username: String,
     pub password: String,
+    pub next: Option<String>,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub struct Permission {
-    pub name: String,
-}
-
-impl From<&str> for Permission {
-    fn from(name: &str) -> Self {
-        Permission {
-            name: name.to_string(),
-        }
-    }
+pub enum Permission {
+    Post,
 }
 
 #[async_trait]
@@ -81,7 +84,7 @@ impl AuthnBackend for Backend {
     type Error = Error;
 
     async fn authenticate(&self, creds: Self::Credentials) -> Result<Option<Self::User>> {
-        let user: Self::User = ok_some!(self.users_username_map.get(creds.username));
+        let user: Self::User = ok_some!(self.users_username_map.get(&creds.username));
 
         Ok(tokio::task::spawn_blocking(|| {
             if verify_password(creds.password, &user.password).is_ok() {
@@ -104,9 +107,16 @@ impl AuthzBackend for Backend {
 
     async fn get_user_permissions(&self, _user: &Self::User) -> Result<HashSet<Self::Permission>> {
         let mut permissions = HashSet::new();
-        permissions.insert("post".into());
+        permissions.insert(Permission::Post);
         Ok(permissions)
     }
 }
 
 pub type AuthSession = axum_login::AuthSession<Backend>;
+
+// This allows us to extract the "next" field from the query string. We use this
+// to redirect after log in.
+#[derive(Debug, Deserialize)]
+pub struct NextUrl {
+    pub next: Option<String>,
+}

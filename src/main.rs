@@ -1,10 +1,13 @@
 use std::time::Duration;
 
+use argon2::password_hash::rand_core::OsRng;
+use argon2::password_hash::{Salt, SaltString};
+use argon2::{Argon2, PasswordHasher};
 use askama::Template;
-use auth::{AuthSession, Backend};
-use axum::extract::State;
+use auth::{AuthSession, Backend, Credentials, NextUrl, Permission};
+use axum::extract::{Query, State};
 use axum::response::sse::Event;
-use axum::response::Sse;
+use axum::response::{IntoResponse, Redirect, Sse};
 use axum::routing::{get, post};
 use axum::{Form, Router};
 use axum_login::tower_sessions::{MemoryStore, SessionManagerLayer};
@@ -12,7 +15,7 @@ use axum_login::{permission_required, AuthManagerLayerBuilder, AuthzBackend};
 use error::Result;
 use futures::{stream, Stream, StreamExt};
 use state::{AppState, Posts, Sanitizer, Users, UsersUsernameMap};
-use templates::{HtmlTemplate, IndexTemplate, PostTemplate};
+use templates::{HtmlTemplate, IndexTemplate, LoginTemplate, PostTemplate};
 use tower_http::services::ServeDir;
 use tracing::debug;
 
@@ -60,9 +63,17 @@ async fn main() {
 
     let app = Router::new()
         .route("/create-post", post(create_post))
-        .route_layer(permission_required!(Backend, login_url = "/login", "post"))
-        .route("/", get(root))
+        .route_layer(permission_required!(
+            Backend,
+            login_url = "/login",
+            Permission::Post
+        ))
+        .route("/", get(index))
         .route("/sse/posts", get(sse_handler))
+        .route("/login", get(login))
+        .route("/login", post(login_post))
+        .route("/logout", get(logout_post))
+        .route("/register", post(register_post))
         .layer(auth_layer)
         .with_state(state)
         .nest_service("/public", ServeDir::new("public"));
@@ -71,10 +82,7 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn root(
-    auth: AuthSession,
-    State(posts): State<Posts>,
-) -> Result<HtmlTemplate<IndexTemplate>> {
+async fn index(auth: AuthSession, State(posts): State<Posts>) -> Result<impl IntoResponse> {
     let posts = posts
         .into_iter()
         .values()
@@ -82,9 +90,10 @@ async fn root(
         .collect::<Result<Vec<String>>>()?
         .join("\n");
     Ok(HtmlTemplate(IndexTemplate {
+        username: auth.user.as_ref().map(|user| user.username.clone()),
         posts,
         can_post: match auth.user {
-            Some(user) => auth.backend.has_perm(&user, "post".into()).await?,
+            Some(user) => auth.backend.has_perm(&user, Permission::Post).await?,
             None => false,
         },
     }))
@@ -94,7 +103,7 @@ async fn create_post(
     State(posts): State<Posts>,
     State(sanitizer): State<Sanitizer>,
     Form(mut post): Form<PostTemplate>,
-) -> Result<()> {
+) -> Result<impl IntoResponse> {
     debug!("Post created!");
 
     let id = posts
@@ -133,4 +142,72 @@ async fn sse_handler(State(posts): State<Posts>) -> Sse<impl Stream<Item = Resul
             .interval(Duration::from_secs(1))
             .text("keep-alive-text"),
     )
+}
+
+async fn login(Query(NextUrl { next }): Query<NextUrl>) -> Result<impl IntoResponse> {
+    Ok(HtmlTemplate(LoginTemplate { error: None, next }))
+}
+
+async fn login_post(
+    mut auth: AuthSession,
+    Form(creds): Form<Credentials>,
+) -> Result<impl IntoResponse> {
+    let user = match auth.authenticate(creds.clone()).await.map_err(Box::new)? {
+        Some(user) => user,
+        None => {
+            return Ok(HtmlTemplate(LoginTemplate {
+                error: Some("Username or password incorrect".into()),
+                next: creds.next,
+            })
+            .into_response())
+        }
+    };
+
+    auth.login(&user).await.map_err(Box::new)?;
+
+    debug!("Logged in user: {:?}", user);
+
+    Ok(Redirect::to(creds.next.as_ref().map_or("/", |v| v)).into_response())
+}
+
+async fn logout_post(mut auth: AuthSession) -> Result<impl IntoResponse> {
+    auth.logout().await.map_err(Box::new)?;
+    Ok(Redirect::to("/").into_response())
+}
+
+async fn register_post(
+    State(users): State<Users>,
+    State(users_username_map): State<UsersUsernameMap>,
+    mut auth: AuthSession,
+    Form(creds): Form<Credentials>,
+) -> Result<impl IntoResponse> {
+    if users_username_map.get(&creds.username)?.is_some() {
+        return Ok(HtmlTemplate(LoginTemplate {
+            error: Some("Username already taken".into()),
+            next: None,
+        })
+        .into_response());
+    }
+
+    let key = users
+        .last()?
+        .map(|(key, _)| key.incremented())
+        .unwrap_or_default();
+
+    let argon2 = Argon2::default();
+    let salt_string = SaltString::generate(&mut OsRng);
+    let salt: Salt = salt_string.as_salt();
+    let password: String = argon2
+        .hash_password(creds.password.as_bytes(), salt)?
+        .to_string();
+
+    let user = auth::User::new(key, creds.username.clone(), password);
+    users_username_map.insert(user.clone())?;
+    users_username_map.flush_async().await?;
+
+    auth.login(&user).await.map_err(Box::new)?;
+
+    debug!("Registered user: {:?}", user);
+
+    Ok(Redirect::to(creds.next.as_ref().map_or("/", |v| v)).into_response())
 }

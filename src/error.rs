@@ -16,8 +16,12 @@ pub enum Error {
     Sled(#[from] sled::Error),
     #[error("askama failed: {0}")]
     Askama(#[from] askama::Error),
-    #[error("tokio failed: {0}")]
+    #[error("tokio join failed: {0}")]
     TokioJoin(#[from] tokio::task::JoinError),
+    #[error("login failed: {0}")]
+    Login(#[from] Box<axum_login::Error<crate::auth::Backend>>),
+    #[error("password hash failed: {0}")]
+    PasswordHash(#[from] argon2::password_hash::Error),
 }
 
 impl IntoResponse for Error {
