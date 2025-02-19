@@ -16,6 +16,7 @@ itertools = "0.14.0"
 password-auth = "1.0.0"
 serde = { version = "1.0.217", features = ["derive"] }
 sled = "0.34.7"
+thiserror = "2.0.11"
 tokio = { version = "1.43.0", features = ["full"] }
 tokio-stream = "0.1.17"
 tower-http = { version = "0.6.2", features = ["fs"] }
