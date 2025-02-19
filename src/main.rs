@@ -10,6 +10,7 @@ use axum::response::sse::Event;
 use axum::response::{IntoResponse, Redirect, Sse};
 use axum::routing::{get, post};
 use axum::{Form, Router};
+use axum_htmx::HxBoosted;
 use axum_login::tower_sessions::{MemoryStore, SessionManagerLayer};
 use axum_login::{permission_required, AuthManagerLayerBuilder, AuthzBackend};
 use error::Result;
@@ -62,7 +63,7 @@ async fn main() {
     };
 
     let app = Router::new()
-        .route("/create-post", post(create_post))
+        .route("/", post(index_post))
         .route_layer(permission_required!(
             Backend,
             login_url = "/login",
@@ -99,9 +100,10 @@ async fn index(auth: AuthSession, State(posts): State<Posts>) -> Result<impl Int
     }))
 }
 
-async fn create_post(
+async fn index_post(
     State(posts): State<Posts>,
     State(sanitizer): State<Sanitizer>,
+    HxBoosted(boosted): HxBoosted,
     Form(mut post): Form<PostTemplate>,
 ) -> Result<impl IntoResponse> {
     debug!("Post created!");
@@ -113,10 +115,14 @@ async fn create_post(
 
     post.body = sanitizer.clean(&post.body).to_string();
 
-    posts.insert(id, post)?;
+    posts.insert(id, post.clone())?;
     posts.flush_async().await?;
 
-    Ok(())
+    if boosted {
+        Ok(().into_response()) // Handled by SSE
+    } else {
+        Ok(Redirect::to("/").into_response())
+    }
 }
 
 async fn sse_handler(State(posts): State<Posts>) -> Sse<impl Stream<Item = Result<Event>>> {
