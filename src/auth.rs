@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{Error, Result};
 use crate::ok_some;
-use crate::state::{Key, Users, UsersUsernameMap};
+use crate::state::{DbTreeLookup as _, Key, Users};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct User {
@@ -53,15 +53,11 @@ impl AuthUser for User {
 #[derive(Clone)]
 pub struct Backend {
     users: Users,
-    users_username_map: UsersUsernameMap,
 }
 
 impl Backend {
-    pub fn new(users: Users, users_username_map: UsersUsernameMap) -> Self {
-        Self {
-            users,
-            users_username_map,
-        }
+    pub fn new(users: Users) -> Self {
+        Self { users }
     }
 }
 
@@ -84,7 +80,7 @@ impl AuthnBackend for Backend {
     type Error = Error;
 
     async fn authenticate(&self, creds: Self::Credentials) -> Result<Option<Self::User>> {
-        let user: Self::User = ok_some!(self.users_username_map.get(&creds.username));
+        let user: Self::User = ok_some!(self.users.get_by_username(&creds.username));
 
         Ok(tokio::task::spawn_blocking(|| {
             if verify_password(creds.password, &user.password).is_ok() {

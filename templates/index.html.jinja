@@ -6,7 +6,8 @@
 </div>
 
 {% if can_post %}
-<form method="post" hx-boost="true" hx-on::after-request="if(event.detail.successful) this.reset()">
+<form method="post" hx-boost="true" hx-swap="none" hx-push-url="false"
+	hx-on::after-request="if(event.detail.successful) this.reset()">
 	<input type="text" name="author" placeholder="Your name" required />
 	<input type="text" name="profile_picture" placeholder="Profile picture URL" />
 	<input type="text" name="body" placeholder="What's on your mind?" required />

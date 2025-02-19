@@ -16,7 +16,7 @@ use crate::{ok_some, some_ok};
 pub struct AppState {
     pub posts: Posts,
     pub users: Users,
-    pub users_username_map: UsersUsernameMap,
+    pub highest_keys: HighestKeys,
     pub sanitizer: Sanitizer,
 }
 
@@ -32,9 +32,9 @@ impl FromRef<AppState> for Users {
     }
 }
 
-impl FromRef<AppState> for UsersUsernameMap {
-    fn from_ref(app_state: &AppState) -> UsersUsernameMap {
-        app_state.users_username_map.clone()
+impl FromRef<AppState> for HighestKeys {
+    fn from_ref(app_state: &AppState) -> HighestKeys {
+        app_state.highest_keys.clone()
     }
 }
 
@@ -47,21 +47,9 @@ impl FromRef<AppState> for Sanitizer {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Key(u64);
 
-impl Key {
-    pub fn incremented(&self) -> Self {
-        Self(self.0 + 1)
-    }
-}
-
 impl Display for Key {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
-    }
-}
-
-impl From<u64> for Key {
-    fn from(id: u64) -> Self {
-        Self(id)
     }
 }
 
@@ -80,135 +68,174 @@ impl From<Key> for IVec {
     }
 }
 
-#[derive(Clone)]
-pub struct DbTree<Item>(Tree, PhantomData<Item>);
-
-impl<Item> DbTree<Item>
+pub trait DbTreeLookup<Key, Value>
 where
-    Item: for<'a> Deserialize<'a> + Serialize,
+    Key: for<'a> Deserialize<'a> + Serialize,
+    Value: for<'a> Deserialize<'a> + Serialize,
 {
-    pub fn new(tree: Tree) -> Self {
-        Self(tree, PhantomData)
-    }
+    fn tree(&self) -> &Tree;
 
-    pub fn get(&self, key: Key) -> Result<Option<Item>> {
-        let item = ok_some!(self.0.get::<IVec>(key.into()));
+    fn get(&self, key: Key) -> Result<Option<Value>> {
+        let key: IVec = bincode::serialize(&key)?.into();
+        let item = ok_some!(self.tree().get(key));
         Ok(Some(bincode::deserialize(&item)?))
     }
 
-    pub fn iter(&self) -> DbTreeIter<Item> {
-        DbTreeIter(self.0.iter(), PhantomData)
+    fn iter(&self) -> DbTreeIter<Key, Value> {
+        DbTreeIter(self.tree().iter(), PhantomData, PhantomData)
     }
 
-    pub fn watch(&self) -> sled::Subscriber {
-        self.0.watch_prefix([])
+    fn watch(&self) -> sled::Subscriber {
+        self.tree().watch_prefix([])
     }
 
-    pub fn insert(&self, key: Key, value: Item) -> Result<()> {
-        self.0
-            .insert(IVec::from(key), bincode::serialize(&value)?)?;
+    fn insert(&self, key: Key, value: Value) -> Result<()> {
+        let key: IVec = bincode::serialize(&key)?.into();
+        self.tree().insert(key, bincode::serialize(&value)?)?;
         Ok(())
     }
 
-    pub async fn flush_async(&self) -> Result<()> {
-        self.0.flush_async().await?;
+    async fn flush(&self) -> Result<()> {
+        self.tree().flush_async().await?;
         Ok(())
     }
+}
 
-    pub fn last(&self) -> Result<Option<(Key, Item)>> {
-        let (key, value) = ok_some!(self.0.last());
-        Ok(Some((key.try_into()?, bincode::deserialize(&value)?)))
+#[derive(Clone)]
+pub struct DbTree<Key, Value>(Tree, PhantomData<Key>, PhantomData<Value>);
+
+impl<Key, Value> DbTree<Key, Value> {
+    pub fn new(tree: Tree) -> Self {
+        Self(tree, PhantomData, PhantomData)
     }
 }
 
-impl<Item> IntoIterator for &'_ DbTree<Item>
+impl<Key, Value> DbTreeLookup<Key, Value> for DbTree<Key, Value>
 where
-    Item: for<'a> Deserialize<'a> + Serialize,
+    Key: for<'a> Deserialize<'a> + Serialize,
+    Value: for<'a> Deserialize<'a> + Serialize,
 {
-    type Item = Result<(Key, Item)>;
-    type IntoIter = DbTreeIter<Item>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
+    fn tree(&self) -> &Tree {
+        &self.0
     }
 }
 
-pub struct DbTreeIter<Item>(sled::Iter, PhantomData<Item>);
+pub struct DbTreeIter<Key, Value>(sled::Iter, PhantomData<Key>, PhantomData<Value>);
 
-impl<Item> DbTreeIter<Item>
+impl<Key, Value> DbTreeIter<Key, Value>
 where
-    Item: for<'a> Deserialize<'a>,
+    Key: for<'a> Deserialize<'a>,
+    Value: for<'a> Deserialize<'a>,
 {
+    #[allow(dead_code)]
     pub fn keys(self) -> impl DoubleEndedIterator<Item = Result<Key>> {
         self.map(|r| r.map(|(k, _v)| k))
     }
 
-    pub fn values(self) -> impl DoubleEndedIterator<Item = Result<Item>> {
+    #[allow(dead_code)]
+    pub fn values(self) -> impl DoubleEndedIterator<Item = Result<Value>> {
         self.map(|r| r.map(|(_k, v)| v))
     }
 }
 
-impl<Item> Iterator for DbTreeIter<Item>
+impl<Key, Value> Iterator for DbTreeIter<Key, Value>
 where
-    Item: for<'a> Deserialize<'a>,
+    Key: for<'a> Deserialize<'a>,
+    Value: for<'a> Deserialize<'a>,
 {
-    type Item = Result<(Key, Item)>;
+    type Item = Result<(Key, Value)>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let (key, value) = some_ok!(self.0.next());
         Some(Ok((
-            key.try_into().unwrap(),
+            bincode::deserialize(&key).unwrap(),
             bincode::deserialize(&value).unwrap(),
         )))
     }
 }
 
-impl<Item> DoubleEndedIterator for DbTreeIter<Item>
+impl<Key, Value> DoubleEndedIterator for DbTreeIter<Key, Value>
 where
-    Item: for<'a> Deserialize<'a>,
+    Key: for<'a> Deserialize<'a>,
+    Value: for<'a> Deserialize<'a>,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         let (key, value) = some_ok!(self.0.next_back());
         Some(Ok((
-            key.try_into().unwrap(),
+            bincode::deserialize(&key).unwrap(),
             bincode::deserialize(&value).unwrap(),
         )))
     }
 }
 
-pub type Posts = DbTree<PostTemplate>;
-pub type Users = DbTree<User>;
+pub type Posts = DbTree<Key, PostTemplate>;
 
 #[derive(Clone)]
-pub struct UsersUsernameMap {
+pub struct Users {
     usernames: Tree,
     users: Tree,
 }
 
-impl UsersUsernameMap {
+impl Users {
     pub fn new(usernames: Tree, users: Tree) -> Self {
         Self { usernames, users }
     }
 
-    pub fn get(&self, username: &String) -> Result<Option<User>> {
-        let id = ok_some!(self.usernames.get(username));
-        let user_data = ok_some!(self.users.get(id));
-        let user = bincode::deserialize(&user_data)?;
-        Ok(Some(user))
+    pub fn get_by_username(&self, username: &String) -> Result<Option<User>> {
+        let username: IVec = username.as_bytes().into();
+        let key = ok_some!(self.usernames.get(username));
+        let user = ok_some!(self.users.get(key));
+        Ok(Some(bincode::deserialize(&user)?))
+    }
+}
+
+impl DbTreeLookup<Key, User> for Users {
+    fn tree(&self) -> &Tree {
+        &self.users
     }
 
-    pub fn insert(&self, user: User) -> Result<()> {
-        self.usernames.insert(user.username.clone(), user.key)?;
-        let user_data = bincode::serialize(&user)?;
-        self.users.insert(IVec::from(user.key), user_data.clone())?;
+    fn insert(&self, key: Key, value: User) -> Result<()> {
+        let key: IVec = bincode::serialize(&key)?.into();
+        let username: IVec = value.username.as_bytes().into();
+        let value: IVec = bincode::serialize(&value)?.into();
+        self.users.insert(key.clone(), value)?;
+        self.usernames.insert(username, key)?;
         Ok(())
     }
 
-    pub async fn flush_async(&self) -> Result<()> {
-        self.usernames.flush_async().await?;
+    async fn flush(&self) -> Result<()> {
         self.users.flush_async().await?;
+        self.usernames.flush_async().await?;
         Ok(())
     }
+}
+
+#[derive(Clone)]
+pub struct HighestKeys(Tree);
+
+impl HighestKeys {
+    pub fn new(tree: Tree) -> Self {
+        Self(tree)
+    }
+
+    pub fn next(&self, table: TableType) -> Result<Key> {
+        let table: IVec = bincode::serialize(&table)?.into();
+        let key = self.0.fetch_and_update(table, |key| {
+            let key = key.map_or(0u64, |key| bincode::deserialize(key).unwrap()) + 1;
+            let key: IVec = bincode::serialize(&key).unwrap().into();
+            Some(key)
+        })?;
+        let key = key
+            .map(|key| bincode::deserialize(&key))
+            .unwrap_or(Ok(0u64))?;
+        Ok(Key(key))
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub enum TableType {
+    Posts,
+    Users,
 }
 
 #[derive(Clone, Deref, DerefMut)]

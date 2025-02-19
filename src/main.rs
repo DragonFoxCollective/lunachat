@@ -15,7 +15,7 @@ use axum_login::tower_sessions::{MemoryStore, SessionManagerLayer};
 use axum_login::{permission_required, AuthManagerLayerBuilder, AuthzBackend};
 use error::Result;
 use futures::{stream, Stream, StreamExt};
-use state::{AppState, Posts, Sanitizer, Users, UsersUsernameMap};
+use state::{AppState, DbTreeLookup, HighestKeys, Posts, Sanitizer, TableType, Users};
 use templates::{HtmlTemplate, IndexTemplate, LoginTemplate, PostTemplate};
 use tower_http::services::ServeDir;
 use tracing::debug;
@@ -35,18 +35,18 @@ async fn main() {
     // DB
     let db = sled::open("db").unwrap();
     let posts = Posts::new(db.open_tree("posts").unwrap());
-    let users = Users::new(db.open_tree("users").unwrap());
-    let users_username_map = UsersUsernameMap::new(
+    let users = Users::new(
         db.open_tree("usernames").unwrap(),
         db.open_tree("users").unwrap(),
     );
+    let highest_keys = HighestKeys::new(db.open_tree("highest_keys").unwrap());
 
     // Session layer
     let session_store = MemoryStore::default();
     let session_layer = SessionManagerLayer::new(session_store);
 
     // Auth service
-    let backend = Backend::new(users.clone(), users_username_map.clone());
+    let backend = Backend::new(users.clone());
     let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
 
     // Sanitizer
@@ -58,7 +58,7 @@ async fn main() {
     let state = AppState {
         posts,
         users,
-        users_username_map,
+        highest_keys,
         sanitizer,
     };
 
@@ -85,7 +85,7 @@ async fn main() {
 
 async fn index(auth: AuthSession, State(posts): State<Posts>) -> Result<impl IntoResponse> {
     let posts = posts
-        .into_iter()
+        .iter()
         .values()
         .map(|post| Ok(post?.render()?))
         .collect::<Result<Vec<String>>>()?
@@ -102,21 +102,19 @@ async fn index(auth: AuthSession, State(posts): State<Posts>) -> Result<impl Int
 
 async fn index_post(
     State(posts): State<Posts>,
+    State(highest_keys): State<HighestKeys>,
     State(sanitizer): State<Sanitizer>,
     HxBoosted(boosted): HxBoosted,
     Form(mut post): Form<PostTemplate>,
 ) -> Result<impl IntoResponse> {
     debug!("Post created!");
 
-    let id = posts
-        .last()?
-        .map(|(key, _)| key.incremented())
-        .unwrap_or_default();
+    let key = highest_keys.next(TableType::Posts)?;
 
     post.body = sanitizer.clean(&post.body).to_string();
 
-    posts.insert(id, post.clone())?;
-    posts.flush_async().await?;
+    posts.insert(key, post.clone())?;
+    posts.flush().await?;
 
     if boosted {
         Ok(().into_response()) // Handled by SSE
@@ -183,11 +181,11 @@ async fn logout_post(mut auth: AuthSession) -> Result<impl IntoResponse> {
 
 async fn register_post(
     State(users): State<Users>,
-    State(users_username_map): State<UsersUsernameMap>,
+    State(highest_keys): State<HighestKeys>,
     mut auth: AuthSession,
     Form(creds): Form<Credentials>,
 ) -> Result<impl IntoResponse> {
-    if users_username_map.get(&creds.username)?.is_some() {
+    if users.get_by_username(&creds.username)?.is_some() {
         return Ok(HtmlTemplate(LoginTemplate {
             error: Some("Username already taken".into()),
             next: None,
@@ -195,10 +193,7 @@ async fn register_post(
         .into_response());
     }
 
-    let key = users
-        .last()?
-        .map(|(key, _)| key.incremented())
-        .unwrap_or_default();
+    let key = highest_keys.next(TableType::Users)?;
 
     let argon2 = Argon2::default();
     let salt_string = SaltString::generate(&mut OsRng);
@@ -208,8 +203,8 @@ async fn register_post(
         .to_string();
 
     let user = auth::User::new(key, creds.username.clone(), password);
-    users_username_map.insert(user.clone())?;
-    users_username_map.flush_async().await?;
+    users.insert(key, user.clone())?;
+    users.flush().await?;
 
     auth.login(&user).await.map_err(Box::new)?;
 
