@@ -9,7 +9,7 @@
 }
 
 html {
-	background: url(/public/checker.png) repeat;
+	background: url(/static/checker.png) repeat;
 	background-color: #03a9f411;
 	animation: scrolling 15s linear infinite;
 }
