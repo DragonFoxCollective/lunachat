@@ -1,0 +1,23 @@
+{% extends "forum_base.html.jinja" %}
+{% block url %}/login{% endblock %}
+{% block logged_in_as %}{% endblock %}
+{% block content %}
+
+<div class="login">
+	<form method="post">
+		<input type="text" name="username" placeholder="Username" required />
+		<input type="password" name="password" placeholder="Password" required />
+		<input type="submit" value="Login" formaction="/login" />
+		<input type="submit" value="Register" formaction="/register" />
+
+		{% if let Some(next) = next %}
+		<input type="hidden" name="next" value="{{ next }}" />
+		{% endif %}
+	</form>
+
+	{% if let Some(error) = error %}
+	<div style="color: red">{{ error }}</div>
+	{% endif %}
+</div>
+
+{% endblock %}

@@ -43,36 +43,10 @@ html {
 	margin: auto;
 }
 
-ul {
-	list-style: none;
-	padding: 0;
-}
-
-li::before {
-	content: '';
-	display: inline-block;
-	height: 1em;
-	width: 1em;
-	background-image: url(bitflower.gif);
-	background-size: contain;
-	margin-right: 0.5em;
-}
-
-li::after {
-	content: '';
-	display: inline-block;
-	height: 1em;
-	width: 1em;
-	background-image: url(bitflower.gif);
-	background-size: contain;
-	margin-left: 0.5em;
-}
-
 header,
 article,
 footer {
 	padding: 10px;
-	text-align: center;
 }
 
 .inline-image {

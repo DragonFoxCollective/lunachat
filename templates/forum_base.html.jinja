@@ -1,0 +1,40 @@
+{% extends "base.html.jinja" %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/forum.css">
+<script src="/static/htmx.min.js"></script>
+<script src="/static/sse.js"></script>
+{% endblock %}
+
+{% block header %}
+{% block logged_in_as %}
+{% if let Some(username) = username %}
+<div class="header-user">
+	<p>Logged in as: {{ username }}</p>
+	<a href="/logout">Logout</a>
+</div>
+{% else %}
+<div class="header-user">
+	<a href="/login">Login</a>
+</div>
+{% endif %}
+{% endblock %}
+<hr />
+{% endblock %}
+
+
+{% block content %}
+
+<div id="posts" hx-ext="sse" sse-connect="/sse/posts" sse-swap="message" hx-swap="beforeend">
+	{{ posts|safe }}
+</div>
+
+{% if can_post %}
+<form method="post" hx-boost="true" hx-swap="none" hx-push-url="false"
+	hx-on::after-request="if(event.detail.successful) this.reset()">
+	<input type="text" name="body" placeholder="What's on your mind?" required />
+	<input type="submit" value="Post" />
+</form>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,26 @@
+.post {
+	margin: 10px;
+	padding: 10px;
+	border: 1px solid black;
+	border-radius: 10px;
+	display: flex;
+	flex-direction: row;
+}
+
+.post-profile {
+	padding-right: 10px;
+	border-right: black 1px solid;
+	width: 128px;
+	flex-grow: 0;
+}
+
+.post-profile img {
+	width: 128px;
+	height: 128px;
+	object-fit: contain;
+}
+
+.post-body {
+	padding-left: 10px;
+	flex-grow: 1;
+}

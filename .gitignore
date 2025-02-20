@@ -1,1 +1,4 @@
-deploy-log.txt
+/target
+.vscode
+/db
+Cargo.lock

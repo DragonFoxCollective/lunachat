@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8" />
+
+	<title>{% block title %}{% endblock %}</title>
+	<meta name="title" content="{% block title %}{% endblock %}" />
+	<meta name="description" content="{% block desc %}{% endblock %}" />
+	<meta name="theme-color" content="#03A9F4">
+
+	<meta property="og:type" content="website" />
+	<meta property="og:url" content="https://dragon-fox.com{% block url %}{% endblock %}" />
+	<meta property="og:title" content="{% block title %}{% endblock %}" />
+	<meta property="og:description" content="{% block desc %}{% endblock %}" />
+	<meta property="og:image" content="https://dragon-fox.com{% block thumb %}{% endblock %}" />
+	<meta property="og:site_name" content="Dragon & Fox Collective" />
+
+	<meta property="twitter:card" content="summary_large_image" />
+	<meta property="twitter:url" content="https://dragon-fox.com{% block url %}{% endblock %}" />
+	<meta property="twitter:title" content="{% block title %}{% endblock %}" />
+	<meta property="twitter:description" content="{% block desc %}{% endblock %}" />
+	<meta property="twitter:image" content="https://dragon-fox.com{% block thumb %}{% endblock %}" />
+
+	<link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+	<link rel="stylesheet" href="/static/styles.css">
+
+	{% block head %}{% endblock %}
+</head>
+
+<body>
+	<header>
+		<div class="header-title">
+			<div class="header-image">
+				<img src="/static/banner-left.png" alt="Dragon banner" />
+			</div>
+			<div class="header-text">
+				<p>Dragon & Fox <br> Collective</p>
+			</div>
+			<div class="header-image">
+				<img src="/static/banner-right.png" alt="Fox banner" />
+			</div>
+		</div>
+
+		<!--<nav>
+			<a href="index.html">Home</a>
+			<a href="showcase.html">Showcase</a>
+			<a href="blog.html">Blog</a>
+		</nav>-->
+
+		{% block header %}{% endblock %}
+	</header>
+
+	{% block content %}{% endblock %}
+</body>
+
+</html>
