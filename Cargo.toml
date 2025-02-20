@@ -2,6 +2,12 @@
 name = "lunachat"
 version = "0.1.0"
 edition = "2021"
+default-run = "main"
+
+[[bin]]
+name = "migrate"
+test = false
+bench = false
 
 [dependencies]
 ammonia = "4.0.0"
@@ -15,6 +21,7 @@ bincode = "1.3.3"
 derive_more = { version = "2.0.1", features = ["deref", "deref_mut"] }
 futures = "0.3.31"
 itertools = "0.14.0"
+lazy_static = "1.5.0"
 password-auth = "1.0.0"
 serde = { version = "1.0.217", features = ["derive"] }
 sled = "0.34.7"

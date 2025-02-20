@@ -1,6 +1,8 @@
 <div class="post">
 	<div class="post-profile">
-		<img src="{{ profile_picture }}" alt="Profile Picture" onerror="this.style.display='none'">
+		{% if let Some(avatar) = avatar %}
+		<img src="{{ avatar }}" alt="{{ author }}'s Profile Picture" onerror="this.style.display='none'">
+		{% endif %}
 		<p>{{ author }}</p>
 	</div>
 	<article class="post-body">

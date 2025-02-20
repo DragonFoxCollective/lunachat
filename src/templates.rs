@@ -15,7 +15,7 @@ pub struct IndexTemplate {
 #[template(path = "post.html.jinja")]
 pub struct PostTemplate {
     pub author: String,
-    pub profile_picture: String,
+    pub avatar: Option<String>,
     pub body: String,
 }
 

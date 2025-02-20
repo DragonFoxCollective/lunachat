@@ -22,6 +22,8 @@ pub enum Error {
     Login(#[from] Box<axum_login::Error<crate::auth::Backend>>),
     #[error("password hash failed: {0}")]
     PasswordHash(#[from] argon2::password_hash::Error),
+    #[error("not logged in (should never happen)")]
+    NotLoggedIn,
 }
 
 impl IntoResponse for Error {

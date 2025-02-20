@@ -4,7 +4,6 @@ use argon2::password_hash::rand_core::OsRng;
 use argon2::password_hash::{Salt, SaltString};
 use argon2::{Argon2, PasswordHasher};
 use askama::Template;
-use auth::{AuthSession, Backend, Credentials, NextUrl, Permission};
 use axum::extract::{Query, State};
 use axum::response::sse::Event;
 use axum::response::{IntoResponse, Redirect, Sse};
@@ -13,18 +12,19 @@ use axum::{Form, Router};
 use axum_htmx::HxBoosted;
 use axum_login::tower_sessions::{MemoryStore, SessionManagerLayer};
 use axum_login::{permission_required, AuthManagerLayerBuilder, AuthzBackend};
-use error::Result;
-use futures::{stream, Stream, StreamExt};
-use state::{AppState, DbTreeLookup, HighestKeys, Posts, Sanitizer, TableType, Users};
-use templates::{HtmlTemplate, IndexTemplate, LoginTemplate, PostTemplate};
+use bincode::Options as _;
+use futures::{stream, Stream};
+use lunachat::auth::{AuthSession, Backend, Credentials, NextUrl, Permission};
+use lunachat::error::{Error, Result};
+use lunachat::state::key::HighestKeys;
+use lunachat::state::post::{Post, PostSubmission, Posts};
+use lunachat::state::sanitizer::Sanitizer;
+use lunachat::state::user::{User, Users};
+use lunachat::state::{AppState, DbTreeLookup, TableType, Versions, BINCODE};
+use lunachat::templates::{HtmlTemplate, IndexTemplate, LoginTemplate, PostTemplate};
+use lunachat::{option_ok, some_ok};
 use tower_http::services::ServeDir;
 use tracing::debug;
-
-mod auth;
-mod error;
-mod state;
-mod templates;
-mod utils;
 
 #[tokio::main]
 async fn main() {
@@ -40,6 +40,27 @@ async fn main() {
         db.open_tree("users").unwrap(),
     );
     let highest_keys = HighestKeys::new(db.open_tree("highest_keys").unwrap());
+
+    // Versioning
+    {
+        let versions = Versions::new(db.open_tree("versions").unwrap());
+        let mut modified = false;
+        if versions.get(TableType::Posts).unwrap().is_none() {
+            versions.insert(TableType::Posts, 1).unwrap();
+            modified = true;
+        }
+        if versions.get(TableType::Users).unwrap().is_none() {
+            versions.insert(TableType::Users, 1).unwrap();
+            modified = true;
+        }
+        if versions.get(TableType::HighestKeys).unwrap().is_none() {
+            versions.insert(TableType::HighestKeys, 1).unwrap();
+            modified = true;
+        }
+        if modified {
+            versions.flush().await.unwrap();
+        }
+    }
 
     // Session layer
     let session_store = MemoryStore::default();
@@ -83,11 +104,24 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn index(auth: AuthSession, State(posts): State<Posts>) -> Result<impl IntoResponse> {
+async fn index(
+    auth: AuthSession,
+    State(posts): State<Posts>,
+    State(users): State<Users>,
+) -> Result<impl IntoResponse> {
     let posts = posts
         .iter()
         .values()
-        .map(|post| Ok(post?.render()?))
+        .map(|post| {
+            let post = post?;
+            let author = users.get(post.author)?.unwrap_or_default();
+            let template = PostTemplate {
+                body: post.body,
+                author: author.username,
+                avatar: author.avatar,
+            };
+            Ok(template.render()?)
+        })
         .collect::<Result<Vec<String>>>()?
         .join("\n");
     Ok(HtmlTemplate(IndexTemplate {
@@ -101,17 +135,22 @@ async fn index(auth: AuthSession, State(posts): State<Posts>) -> Result<impl Int
 }
 
 async fn index_post(
+    auth: AuthSession,
     State(posts): State<Posts>,
     State(highest_keys): State<HighestKeys>,
     State(sanitizer): State<Sanitizer>,
     HxBoosted(boosted): HxBoosted,
-    Form(mut post): Form<PostTemplate>,
+    Form(post): Form<PostSubmission>,
 ) -> Result<impl IntoResponse> {
     debug!("Post created!");
 
     let key = highest_keys.next(TableType::Posts)?;
 
-    post.body = sanitizer.clean(&post.body).to_string();
+    let post = Post {
+        key,
+        author: auth.user.ok_or(Error::NotLoggedIn)?.key,
+        body: sanitizer.clean(&post.body).to_string(),
+    };
 
     posts.insert(key, post.clone())?;
     posts.flush().await?;
@@ -123,22 +162,33 @@ async fn index_post(
     }
 }
 
-async fn sse_handler(State(posts): State<Posts>) -> Sse<impl Stream<Item = Result<Event>>> {
+async fn sse_handler(
+    State(posts): State<Posts>,
+    State(users): State<Users>,
+) -> Sse<impl Stream<Item = Result<Event>>> {
     debug!("SSE connection established");
 
     let sub = posts.watch();
-    let stream = stream::unfold(sub, move |mut sub| async {
-        (&mut sub).await.map(|event| (event, sub))
-    })
-    .filter_map(|event| async {
-        let template = match event {
-            sled::Event::Insert { value, .. } => Some(value),
-            sled::Event::Remove { .. } => None,
-        }?;
-        let template: PostTemplate = option_ok!(bincode::deserialize(&template));
-        let data = option_ok!(template.render());
-        let event = Event::default().data(data);
-        Some(Ok(event))
+    let stream = stream::unfold((sub, users), move |(mut sub, users)| async {
+        (&mut sub)
+            .await
+            .and_then(|event| {
+                let post = match event {
+                    sled::Event::Insert { value, .. } => Some(value),
+                    sled::Event::Remove { .. } => None,
+                }?;
+                let post: Post = option_ok!(BINCODE.deserialize(&post));
+                let author = some_ok!(users.get(post.author).transpose());
+                let template = PostTemplate {
+                    body: post.body,
+                    author: author.username,
+                    avatar: author.avatar,
+                };
+                let data = option_ok!(template.render());
+                let event = Event::default().data(data);
+                Some(Ok(event))
+            })
+            .map(|event| (event, (sub, users)))
     });
 
     Sse::new(stream).keep_alive(
@@ -202,7 +252,12 @@ async fn register_post(
         .hash_password(creds.password.as_bytes(), salt)?
         .to_string();
 
-    let user = auth::User::new(key, creds.username.clone(), password);
+    let user = User {
+        key,
+        username: creds.username.clone(),
+        password,
+        avatar: None,
+    };
     users.insert(key, user.clone())?;
     users.flush().await?;
 

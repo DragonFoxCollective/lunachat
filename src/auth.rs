@@ -3,40 +3,13 @@ use std::collections::HashSet;
 use async_trait::async_trait;
 use axum_login::{AuthUser, AuthnBackend, AuthzBackend, UserId};
 use password_auth::verify_password;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::error::{Error, Result};
 use crate::ok_some;
-use crate::state::{DbTreeLookup as _, Key, Users};
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct User {
-    pub key: Key,
-    pub username: String,
-    password: String,
-}
-
-impl User {
-    pub fn new(key: Key, username: String, password: String) -> Self {
-        Self {
-            key,
-            username,
-            password,
-        }
-    }
-}
-
-// Here we've implemented `Debug` manually to avoid accidentally logging the
-// password hash.
-impl std::fmt::Debug for User {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("User")
-            .field("id", &self.key)
-            .field("username", &self.username)
-            .field("password", &"[redacted]")
-            .finish()
-    }
-}
+use crate::state::key::Key;
+use crate::state::user::{User, Users};
+use crate::state::DbTreeLookup as _;
 
 impl AuthUser for User {
     type Id = Key;
