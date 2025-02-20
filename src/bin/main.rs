@@ -245,10 +245,9 @@ async fn register_post(
 
     let key = highest_keys.next(TableType::Users)?;
 
-    let argon2 = Argon2::default();
     let salt_string = SaltString::generate(&mut OsRng);
     let salt: Salt = salt_string.as_salt();
-    let password: String = argon2
+    let password: String = Argon2::default()
         .hash_password(creds.password.as_bytes(), salt)?
         .to_string();
 
