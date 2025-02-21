@@ -1,7 +1,7 @@
 use bincode::Options as _;
-use lunachat::state::key::Key;
-use lunachat::state::user::User;
-use lunachat::state::{DbTreeLookup, TableType, Versions, BINCODE};
+use dragon_fox::state::key::Key;
+use dragon_fox::state::user::User;
+use dragon_fox::state::{DbTreeLookup, TableType, Versions, BINCODE};
 use serde::{Deserialize, Serialize};
 
 macro_rules! migrate_up_to {

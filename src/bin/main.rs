@@ -13,18 +13,18 @@ use axum_htmx::HxBoosted;
 use axum_login::tower_sessions::{MemoryStore, SessionManagerLayer};
 use axum_login::{permission_required, AuthManagerLayerBuilder, AuthzBackend};
 use bincode::Options as _;
-use futures::{stream, Stream};
-use lunachat::auth::{AuthSession, Backend, Credentials, NextUrl, Permission};
-use lunachat::error::{Error, Result};
-use lunachat::state::key::HighestKeys;
-use lunachat::state::post::{Post, PostSubmission, Posts};
-use lunachat::state::sanitizer::Sanitizer;
-use lunachat::state::user::{User, Users};
-use lunachat::state::{AppState, DbTreeLookup, TableType, Versions, BINCODE};
-use lunachat::templates::{
+use dragon_fox::auth::{AuthSession, Backend, Credentials, NextUrl, Permission};
+use dragon_fox::error::{Error, Result};
+use dragon_fox::state::key::HighestKeys;
+use dragon_fox::state::post::{Post, PostSubmission, Posts};
+use dragon_fox::state::sanitizer::Sanitizer;
+use dragon_fox::state::user::{User, Users};
+use dragon_fox::state::{AppState, DbTreeLookup, TableType, Versions, BINCODE};
+use dragon_fox::templates::{
     ForumTemplate, HtmlTemplate, IndexTemplate, LoginTemplate, PostTemplate,
 };
-use lunachat::{option_ok, some_ok};
+use dragon_fox::{option_ok, some_ok};
+use futures::{stream, Stream};
 use serde::{Deserialize, Serialize};
 use tokio::process::Command;
 use tower_http::services::ServeDir;
@@ -33,7 +33,7 @@ use tracing::{debug, warn};
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt()
-        .with_env_filter("lunachat=trace")
+        .with_env_filter("dragon_fox=trace")
         .init();
 
     // DB
