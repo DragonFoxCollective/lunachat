@@ -21,6 +21,7 @@
 }
 
 .post-body {
+	padding: 0;
 	padding-left: 10px;
 	flex-grow: 1;
 }
