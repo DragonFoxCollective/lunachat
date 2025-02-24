@@ -3,6 +3,8 @@ use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse, Response};
 use serde::{Deserialize, Serialize};
 
+use crate::state::key::Key;
+
 #[derive(Template)]
 #[template(path = "index.html.jinja")]
 pub struct IndexTemplate;
@@ -18,9 +20,11 @@ pub struct ForumTemplate {
 #[derive(Template, Clone, Serialize, Deserialize)]
 #[template(path = "post.html.jinja")]
 pub struct PostTemplate {
+    pub key: Key,
     pub author: String,
     pub avatar: Option<String>,
     pub body: String,
+    pub sse: bool,
 }
 
 #[derive(Template)]

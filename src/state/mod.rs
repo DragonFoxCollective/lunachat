@@ -3,19 +3,22 @@ use std::marker::PhantomData;
 use async_trait::async_trait;
 use axum::extract::FromRef;
 use bincode::Options as _;
+use derive_more::{Deref, DerefMut};
 use key::HighestKeys;
 use post::Posts;
 use sanitizer::Sanitizer;
 use serde::{Deserialize, Serialize};
-use sled::{IVec, Tree};
+use sled::{Db, IVec, Tree};
+use thread::Threads;
 use user::Users;
 
 use crate::error::Result;
-use crate::{ok_some, some_ok};
+use crate::{ok_some, option_ok, some_ok};
 
 pub mod key;
 pub mod post;
 pub mod sanitizer;
+pub mod thread;
 pub mod user;
 
 lazy_static::lazy_static! {
@@ -29,8 +32,8 @@ lazy_static::lazy_static! {
 pub struct AppState {
     pub posts: Posts,
     pub users: Users,
-    pub highest_keys: HighestKeys,
     pub sanitizer: Sanitizer,
+    pub threads: Threads,
 }
 
 impl FromRef<AppState> for Posts {
@@ -45,15 +48,15 @@ impl FromRef<AppState> for Users {
     }
 }
 
-impl FromRef<AppState> for HighestKeys {
-    fn from_ref(app_state: &AppState) -> HighestKeys {
-        app_state.highest_keys.clone()
-    }
-}
-
 impl FromRef<AppState> for Sanitizer {
     fn from_ref(app_state: &AppState) -> Sanitizer {
         app_state.sanitizer.clone()
+    }
+}
+
+impl FromRef<AppState> for Threads {
+    fn from_ref(app_state: &AppState) -> Threads {
+        app_state.threads.clone()
     }
 }
 
@@ -92,11 +95,11 @@ where
 }
 
 #[derive(Clone)]
-pub struct DbTree<Key, Value>(Tree, PhantomData<Key>, PhantomData<Value>);
+pub struct DbTree<Key, Value>(Tree, HighestKeys, PhantomData<Key>, PhantomData<Value>);
 
 impl<Key, Value> DbTree<Key, Value> {
-    pub fn new(tree: Tree) -> Self {
-        Self(tree, PhantomData, PhantomData)
+    pub fn new(tree: Tree, highest_keys: HighestKeys) -> Self {
+        Self(tree, highest_keys, PhantomData, PhantomData)
     }
 }
 
@@ -136,8 +139,8 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         let (key, value) = some_ok!(self.0.next());
         Some(Ok((
-            BINCODE.deserialize(&key).unwrap(),
-            BINCODE.deserialize(&value).unwrap(),
+            option_ok!(BINCODE.deserialize(&key)),
+            option_ok!(BINCODE.deserialize(&value)),
         )))
     }
 }
@@ -150,18 +153,29 @@ where
     fn next_back(&mut self) -> Option<Self::Item> {
         let (key, value) = some_ok!(self.0.next_back());
         Some(Ok((
-            BINCODE.deserialize(&key).unwrap(),
-            BINCODE.deserialize(&value).unwrap(),
+            option_ok!(BINCODE.deserialize(&key)),
+            option_ok!(BINCODE.deserialize(&value)),
         )))
     }
 }
 
-pub type Versions = DbTree<TableType, u64>;
+#[derive(Clone, Deref, DerefMut)]
+pub struct Versions(DbTree<TableType, u64>);
 
-#[derive(Clone, Copy, Serialize, Deserialize)]
+impl Versions {
+    pub fn open(db: &Db) -> Result<Self> {
+        Ok(Self(DbTree::new(
+            db.open_tree("versions")?,
+            HighestKeys::open(db)?,
+        )))
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[repr(u64)]
 pub enum TableType {
     Posts = 0,
     Users = 1,
     HighestKeys = 2,
+    Threads = 3,
 }

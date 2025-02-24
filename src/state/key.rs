@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use bincode::Options as _;
 use serde::{Deserialize, Serialize};
-use sled::{IVec, Tree};
+use sled::{Db, IVec, Tree};
 
 use crate::error::{Error, Result};
 
@@ -38,6 +38,10 @@ pub struct HighestKeys(Tree);
 impl HighestKeys {
     pub fn new(tree: Tree) -> Self {
         Self(tree)
+    }
+
+    pub fn open(db: &Db) -> Result<Self> {
+        Ok(Self(db.open_tree("highest_keys")?))
     }
 
     pub fn next(&self, table: TableType) -> Result<Key> {

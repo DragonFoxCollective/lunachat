@@ -8,31 +8,24 @@ use super::key::{HighestKeys, Key};
 use super::{DbTree, TableType};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Post {
+pub struct Thread {
     pub key: Key,
-    pub body: String,
-    pub author: Key,
-    pub parent: Option<Key>,
-    pub children: Vec<Key>,
+    pub title: String,
+    pub post: Key,
 }
 
 #[derive(Clone, Deref, DerefMut)]
-pub struct Posts(DbTree<Key, Post>);
+pub struct Threads(DbTree<Key, Thread>);
 
-impl Posts {
+impl Threads {
     pub fn open(db: &Db) -> Result<Self> {
         Ok(Self(DbTree::new(
-            db.open_tree("posts")?,
+            db.open_tree("threads")?,
             HighestKeys::open(db)?,
         )))
     }
 
     pub fn next_key(&self) -> Result<Key> {
-        self.1.next(TableType::Posts)
+        self.1.next(TableType::Threads)
     }
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct PostSubmission {
-    pub body: String,
 }

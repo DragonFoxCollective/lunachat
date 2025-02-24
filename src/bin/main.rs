@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::time::Duration;
 
 use argon2::password_hash::rand_core::OsRng;
@@ -15,9 +16,9 @@ use axum_login::{permission_required, AuthManagerLayerBuilder, AuthzBackend};
 use bincode::Options as _;
 use dragon_fox::auth::{AuthSession, Backend, Credentials, NextUrl, Permission};
 use dragon_fox::error::{Error, Result};
-use dragon_fox::state::key::HighestKeys;
 use dragon_fox::state::post::{Post, PostSubmission, Posts};
 use dragon_fox::state::sanitizer::Sanitizer;
+use dragon_fox::state::thread::{Thread, Threads};
 use dragon_fox::state::user::{User, Users};
 use dragon_fox::state::{AppState, DbTreeLookup, TableType, Versions, BINCODE};
 use dragon_fox::templates::{
@@ -31,38 +32,39 @@ use tower_http::services::ServeDir;
 use tracing::{debug, warn};
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter("dragon_fox=trace")
         .init();
 
     // DB
-    let db = sled::open("db").unwrap();
-    let posts = Posts::new(db.open_tree("posts").unwrap());
-    let users = Users::new(
-        db.open_tree("usernames").unwrap(),
-        db.open_tree("users").unwrap(),
-    );
-    let highest_keys = HighestKeys::new(db.open_tree("highest_keys").unwrap());
+    let db = sled::open("db")?;
+    let posts = Posts::open(&db)?;
+    let users = Users::open(&db)?;
+    let threads = Threads::open(&db)?;
 
     // Versioning
     {
-        let versions = Versions::new(db.open_tree("versions").unwrap());
+        let versions = Versions::open(&db)?;
         let mut modified = false;
-        if versions.get(TableType::Posts).unwrap().is_none() {
-            versions.insert(TableType::Posts, 1).unwrap();
+        if versions.get(TableType::Posts)?.is_none() {
+            versions.insert(TableType::Posts, 1)?;
             modified = true;
         }
-        if versions.get(TableType::Users).unwrap().is_none() {
-            versions.insert(TableType::Users, 1).unwrap();
+        if versions.get(TableType::Users)?.is_none() {
+            versions.insert(TableType::Users, 1)?;
             modified = true;
         }
-        if versions.get(TableType::HighestKeys).unwrap().is_none() {
-            versions.insert(TableType::HighestKeys, 1).unwrap();
+        if versions.get(TableType::HighestKeys)?.is_none() {
+            versions.insert(TableType::HighestKeys, 1)?;
+            modified = true;
+        }
+        if versions.get(TableType::Threads)?.is_none() {
+            versions.insert(TableType::Threads, 1)?;
             modified = true;
         }
         if modified {
-            versions.flush().await.unwrap();
+            versions.flush().await?;
         }
     }
 
@@ -83,8 +85,8 @@ async fn main() {
     let state = AppState {
         posts,
         users,
-        highest_keys,
         sanitizer,
+        threads,
     };
 
     let app = Router::new()
@@ -106,8 +108,10 @@ async fn main() {
         .with_state(state)
         .nest_service("/static", ServeDir::new("static"));
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
+    axum::serve(listener, app).await?;
+
+    Ok(())
 }
 
 async fn index() -> Result<impl IntoResponse> {
@@ -116,19 +120,47 @@ async fn index() -> Result<impl IntoResponse> {
 
 async fn forum(
     auth: AuthSession,
+    State(threads): State<Threads>,
     State(posts): State<Posts>,
     State(users): State<Users>,
 ) -> Result<impl IntoResponse> {
-    let posts = posts
+    let posts = threads
         .iter()
         .values()
+        .map(|thread| {
+            let thread = thread?;
+            let mut posts_visited = HashSet::new();
+            let mut posts_visited_in_order = vec![];
+            let mut posts_to_visit = vec![thread.post];
+            while let Some(post_key) = posts_to_visit.pop() {
+                if posts_visited.contains(&post_key) {
+                    continue;
+                }
+                posts_visited.insert(post_key);
+                posts_visited_in_order.push(post_key);
+                let post = posts.get(post_key)?.ok_or(Error::PostNotFound(post_key))?;
+                posts_to_visit.extend(post.children.iter().copied());
+            }
+            posts_visited_in_order
+                .iter()
+                .map(|key| match posts.get(*key) {
+                    Ok(Some(post)) => Ok(post),
+                    Ok(None) => Err(Error::PostNotFound(*key)),
+                    Err(e) => Err(e),
+                })
+                .collect::<Result<Vec<_>>>()
+        })
+        .collect::<Result<Vec<_>>>()?
+        .into_iter()
+        .flatten()
         .map(|post| {
-            let post = post?;
             let author = users.get(post.author)?.unwrap_or_default();
             let template = PostTemplate {
+                key: post.key,
                 body: post.body,
                 author: author.username,
                 avatar: author.avatar,
+                sse: false,
             };
             Ok(template.render()?)
         })
@@ -146,23 +178,45 @@ async fn forum(
 
 async fn forum_post(
     auth: AuthSession,
+    State(threads): State<Threads>,
     State(posts): State<Posts>,
-    State(highest_keys): State<HighestKeys>,
     State(sanitizer): State<Sanitizer>,
     HxBoosted(boosted): HxBoosted,
     Form(post): Form<PostSubmission>,
 ) -> Result<impl IntoResponse> {
     debug!("Post created!");
 
-    let key = highest_keys.next(TableType::Posts)?;
+    let key = posts.next_key()?;
+    let parent_key = posts.iter().keys().last().transpose()?;
 
     let post = Post {
         key,
         author: auth.user.ok_or(Error::NotLoggedIn)?.key,
         body: sanitizer.clean(&post.body).to_string(),
+        parent: parent_key,
+        children: vec![],
     };
-
     posts.insert(key, post.clone())?;
+
+    if let Some(parent_key) = parent_key {
+        let mut parent = posts
+            .get(parent_key)?
+            .ok_or(Error::PostNotFound(parent_key))?;
+        parent.children.push(key);
+        posts.insert(parent_key, parent)?;
+    } else {
+        let thread_key = threads.next_key()?;
+        threads.insert(
+            key,
+            Thread {
+                key: thread_key,
+                title: "".to_string(),
+                post: key,
+            },
+        )?;
+        threads.flush().await?;
+    }
+
     posts.flush().await?;
 
     if boosted {
@@ -190,9 +244,11 @@ async fn sse_handler(
                 let post: Post = option_ok!(BINCODE.deserialize(&post));
                 let author = some_ok!(users.get(post.author).transpose());
                 let template = PostTemplate {
+                    key: post.key,
                     body: post.body,
                     author: author.username,
                     avatar: author.avatar,
+                    sse: true,
                 };
                 let data = option_ok!(template.render());
                 let event = Event::default().data(data);
@@ -241,7 +297,6 @@ async fn logout_post(mut auth: AuthSession) -> Result<impl IntoResponse> {
 
 async fn register_post(
     State(users): State<Users>,
-    State(highest_keys): State<HighestKeys>,
     mut auth: AuthSession,
     Form(creds): Form<Credentials>,
 ) -> Result<impl IntoResponse> {
@@ -253,7 +308,7 @@ async fn register_post(
         .into_response());
     }
 
-    let key = highest_keys.next(TableType::Users)?;
+    let key = users.next_key()?;
 
     let salt_string = SaltString::generate(&mut OsRng);
     let salt: Salt = salt_string.as_salt();
@@ -285,6 +340,7 @@ struct Deploy {
 struct DeployRepo {
     name: String,
 }
+/// No idea if this *actually* works
 async fn deploy_post(Json(deploy): Json<Deploy>) -> Result<impl IntoResponse> {
     warn!("Deploying {}", deploy.repository.name);
     let dir = match deploy.repository.name.as_ref() {

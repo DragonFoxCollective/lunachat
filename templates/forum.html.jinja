@@ -2,12 +2,12 @@
 {% block url %}/forum{% endblock %}
 {% block content %}
 
-<div id="posts" hx-ext="sse" sse-connect="/sse/posts" sse-swap="message" hx-swap="beforeend">
+<div id="posts" hx-ext="sse,oob-if-exists" sse-connect="/sse/posts" sse-swap="message" hx-swap="beforeend">
 	{{ posts|safe }}
 </div>
 
 {% if can_post %}
-<form method="post" hx-boost="true" hx-swap="none" hx-push-url="false"
+<form method="post" hx-boost="true" hx-swap="none show:none" hx-push-url="false"
 	hx-on::after-request="if(event.detail.successful) this.reset()">
 	<input type="text" name="body" placeholder="What's on your mind?" required />
 	<input type="submit" value="Post" />

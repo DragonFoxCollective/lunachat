@@ -4,6 +4,8 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use tracing::error;
 
+use crate::state::key::Key;
+
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, thiserror::Error)]
@@ -28,6 +30,8 @@ pub enum Error {
     WrongRepo(String),
     #[error("io error: {0}")]
     IO(#[from] std::io::Error),
+    #[error("post not found: {0}")]
+    PostNotFound(Key),
 }
 
 impl IntoResponse for Error {
