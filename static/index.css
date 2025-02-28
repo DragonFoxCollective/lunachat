@@ -28,3 +28,7 @@ li::after {
 	background-size: contain;
 	margin-left: 0.5em;
 }
+
+.header-nav {
+	justify-content: center;
+}

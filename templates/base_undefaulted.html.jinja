@@ -42,13 +42,15 @@
 			</div>
 		</div>
 
-		<!--<nav>
-			<a href="index.html">Home</a>
-			<a href="showcase.html">Showcase</a>
-			<a href="blog.html">Blog</a>
-		</nav>-->
-
-		{% block header %}{% endblock %}
+		<div class="header-nav">
+			<nav>
+				<a href="/">Home</a>
+				<a href="/forum">Forum</a>
+			</nav>
+			<div class="header-nav-right">
+				{% block header_right %}{% endblock %}
+			</div>
+		</div>
 	</header>
 
 	{% block content %}{% endblock %}

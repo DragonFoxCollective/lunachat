@@ -7,21 +7,13 @@
 <script src="/static/oob-if-exists.js"></script>
 {% endblock %}
 
-{% block header %}
-{% block logged_in_as %}
+{% block header_right %}
 {% if let Some(username) = username %}
-<div class="header-user">
-	<p>Logged in as: {{ username }}</p>
-	<a href="/logout">Logout</a>
-</div>
+<p>Logged in as: {{ username }}</p>
+<a href="/logout">Logout</a>
 {% else %}
-<div class="header-user">
-	<a href="/login">Login</a>
-</div>
+<a href="/login">Login</a>
 {% endif %}
-{% endblock %}
-<a href="/forum">Home</a>
-<hr />
 {% endblock %}
 
 

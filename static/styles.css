@@ -43,6 +43,16 @@ html {
 	margin: auto;
 }
 
+.header-nav {
+	display: flex;
+	flex-direction: row;
+	justify-content: space-between;
+}
+
+.header-nav-right {
+	text-align: right;
+}
+
 header,
 article,
 footer {
