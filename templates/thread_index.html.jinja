@@ -1,0 +1,9 @@
+<div id="thread_{{ key }}" class="thread-index" {% if sse %} hx-swap-oob="if-exists" {% endif %}>
+	<div class="thread-title">
+		<p><a href="/forum/thread/{{ key }}">{{ title }}</a> by {{ author }}</p>
+		<p class="thread-body">{{ body }}</p>
+	</div>
+	<div class="thread-stats">
+		<p>{{ num_posts - 1 }} replies</p>
+	</div>
+</div>

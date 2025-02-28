@@ -1,9 +1,9 @@
 use bincode::Options as _;
-use dragon_fox::error::Result;
-use dragon_fox::state::key::Key;
-use dragon_fox::state::post::Post;
+use dragon_fox::error::{Error, Result};
+use dragon_fox::option_ok;
+use dragon_fox::state::post::{Post, PostKey};
 use dragon_fox::state::thread::{Thread, Threads};
-use dragon_fox::state::user::User;
+use dragon_fox::state::user::{User, UserKey};
 use dragon_fox::state::{DbTreeLookup, TableType, Versions, BINCODE};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -58,8 +58,9 @@ async fn main() -> Result<()> {
         db,
         TableType::Posts,
         "posts",
-        2,
-        (1, Post1, Post, migrate_post1)
+        3,
+        (1, Post1, Post2, migrate_post1),
+        (2, Post2, Post, migrate_post2)
     );
 
     Ok(())
@@ -67,7 +68,7 @@ async fn main() -> Result<()> {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct User1 {
-    pub key: Key,
+    pub key: UserKey,
     pub username: String,
     password: String,
 }
@@ -83,12 +84,21 @@ fn migrate_user1(_db: &Db, user: User1) -> Result<User> {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Post1 {
-    pub key: Key,
+    pub key: PostKey,
     pub body: String,
-    pub author: Key,
+    pub author: UserKey,
 }
 
-fn migrate_post1(db: &Db, post: Post1) -> Result<Post> {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Post2 {
+    pub key: PostKey,
+    pub body: String,
+    pub author: UserKey,
+    pub parent: Option<PostKey>,
+    pub children: Vec<PostKey>,
+}
+
+fn migrate_post1(db: &Db, post: Post1) -> Result<Post2> {
     let posts = db.open_tree("posts")?;
     let (parent, child) = posts
         .iter()
@@ -119,11 +129,48 @@ fn migrate_post1(db: &Db, post: Post1) -> Result<Post> {
     }
 
     // Whoops this actually forgets to set parent.children and child.parent
-    Ok(Post {
+    Ok(Post2 {
         key: post.key,
         body: post.body,
         author: post.author,
         parent,
         children: vec![child].into_iter().flatten().collect(),
+    })
+}
+
+fn migrate_post2(db: &Db, post: Post2) -> Result<Post> {
+    let posts = db.open_tree("posts")?;
+    let mut root_key = post.key;
+    let mut parent_key = post.parent;
+    while let Some(parent) = parent_key {
+        let parent = posts
+            .get(BINCODE.serialize(&parent)?)?
+            .ok_or(Error::PostNotFound(parent))?;
+        let parent: Post2 = BINCODE.deserialize(&parent)?;
+        root_key = parent.key;
+        parent_key = parent.parent;
+    }
+
+    let threads = Threads::open(db)?;
+    let thread = threads
+        .iter()
+        .values()
+        .find_map(|thread| {
+            let thread = option_ok!(thread);
+            if thread.post == root_key {
+                Some(Ok::<Thread, Error>(thread))
+            } else {
+                None
+            }
+        })
+        .unwrap()?;
+
+    Ok(Post {
+        key: post.key,
+        body: post.body,
+        author: post.author,
+        parent: post.parent,
+        children: post.children,
+        thread: thread.key,
     })
 }

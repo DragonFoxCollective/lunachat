@@ -1,3 +1,35 @@
+.thread-index {
+	margin: 10px;
+	padding: 10px;
+	border: 1px solid black;
+	border-radius: 10px;
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+}
+
+.thread-title {
+	padding: 0;
+	padding-right: 10px;
+	flex-grow: 1;
+}
+
+.thread-title p {
+	margin: 0;
+}
+
+.thread-body {
+	text-overflow: ellipsis;
+	font-size: small;
+}
+
+.thread-stats {
+	padding-left: 10px;
+	border-left: black 1px solid;
+	width: 128px;
+	flex-grow: 0;
+}
+
 .post {
 	margin: 10px;
 	padding: 10px;

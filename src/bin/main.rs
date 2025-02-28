@@ -5,7 +5,7 @@ use argon2::password_hash::rand_core::OsRng;
 use argon2::password_hash::{Salt, SaltString};
 use argon2::{Argon2, PasswordHasher};
 use askama::Template;
-use axum::extract::{Query, State};
+use axum::extract::{Path, Query, State};
 use axum::response::sse::Event;
 use axum::response::{IntoResponse, Redirect, Sse};
 use axum::routing::{get, post};
@@ -16,17 +16,19 @@ use axum_login::{permission_required, AuthManagerLayerBuilder, AuthzBackend};
 use bincode::Options as _;
 use dragon_fox::auth::{AuthSession, Backend, Credentials, NextUrl, Permission};
 use dragon_fox::error::{Error, Result};
+use dragon_fox::option_ok;
 use dragon_fox::state::post::{Post, PostSubmission, Posts};
 use dragon_fox::state::sanitizer::Sanitizer;
-use dragon_fox::state::thread::{Thread, Threads};
+use dragon_fox::state::thread::{Thread, ThreadKey, ThreadSubmission, Threads};
 use dragon_fox::state::user::{User, Users};
 use dragon_fox::state::{AppState, DbTreeLookup, TableType, Versions, BINCODE};
 use dragon_fox::templates::{
-    ForumTemplate, HtmlTemplate, IndexTemplate, LoginTemplate, PostTemplate,
+    ForumTemplate, HtmlTemplate, IndexTemplate, LoginTemplate, PostTemplate, ThreadIndexTemplate,
+    ThreadTemplate,
 };
-use dragon_fox::{option_ok, some_ok};
 use futures::{stream, Stream};
 use serde::{Deserialize, Serialize};
+use sled::Subscriber;
 use tokio::process::Command;
 use tower_http::services::ServeDir;
 use tracing::{debug, warn};
@@ -90,7 +92,8 @@ async fn main() -> Result<()> {
     };
 
     let app = Router::new()
-        .route("/forum", post(forum_post))
+        .route("/forum", post(thread_post))
+        .route("/forum/thread/{thread_key}", post(post_post))
         .route_layer(permission_required!(
             Backend,
             login_url = "/login",
@@ -98,7 +101,9 @@ async fn main() -> Result<()> {
         ))
         .route("/", get(index))
         .route("/forum", get(forum))
-        .route("/sse/posts", get(sse_handler))
+        .route("/forum/thread/{thread_key}", get(thread))
+        .route("/sse/threads", get(sse_threads))
+        .route("/sse/posts/{thread_key}", get(sse_posts))
         .route("/login", get(login))
         .route("/login", post(login_post))
         .route("/logout", get(logout_post))
@@ -124,42 +129,29 @@ async fn forum(
     State(posts): State<Posts>,
     State(users): State<Users>,
 ) -> Result<impl IntoResponse> {
-    let posts = threads
+    let threads = threads
         .iter()
         .values()
         .map(|thread| {
             let thread = thread?;
-            let mut posts_visited = HashSet::new();
-            let mut posts_visited_in_order = vec![];
-            let mut posts_to_visit = vec![thread.post];
-            while let Some(post_key) = posts_to_visit.pop() {
-                if posts_visited.contains(&post_key) {
-                    continue;
-                }
-                posts_visited.insert(post_key);
-                posts_visited_in_order.push(post_key);
-                let post = posts.get(post_key)?.ok_or(Error::PostNotFound(post_key))?;
-                posts_to_visit.extend(post.children.iter().copied());
-            }
-            posts_visited_in_order
+            let post = posts
+                .get(thread.post)?
+                .ok_or(Error::PostNotFound(thread.post))?;
+            let num_posts = posts
                 .iter()
-                .map(|key| match posts.get(*key) {
-                    Ok(Some(post)) => Ok(post),
-                    Ok(None) => Err(Error::PostNotFound(*key)),
-                    Err(e) => Err(e),
-                })
-                .collect::<Result<Vec<_>>>()
-        })
-        .collect::<Result<Vec<_>>>()?
-        .into_iter()
-        .flatten()
-        .map(|post| {
-            let author = users.get(post.author)?.unwrap_or_default();
-            let template = PostTemplate {
-                key: post.key,
+                .values()
+                .filter_map(|post| post.ok())
+                .filter(|post| post.thread == thread.key)
+                .count();
+            let author = users
+                .get(post.author)?
+                .ok_or(Error::UserNotFound(post.author))?;
+            let template = ThreadIndexTemplate {
+                key: thread.key,
+                title: thread.title,
                 body: post.body,
+                num_posts,
                 author: author.username,
-                avatar: author.avatar,
                 sse: false,
             };
             Ok(template.render()?)
@@ -167,6 +159,99 @@ async fn forum(
         .collect::<Result<Vec<String>>>()?
         .join("\n");
     Ok(HtmlTemplate(ForumTemplate {
+        username: auth.user.as_ref().map(|user| user.username.clone()),
+        threads,
+        can_post: match auth.user {
+            Some(user) => auth.backend.has_perm(&user, Permission::Post).await?,
+            None => false,
+        },
+    }))
+}
+
+async fn thread_post(
+    auth: AuthSession,
+    State(threads): State<Threads>,
+    State(posts): State<Posts>,
+    State(sanitizer): State<Sanitizer>,
+    Form(thread): Form<ThreadSubmission>,
+) -> Result<impl IntoResponse> {
+    debug!("Thread created!");
+
+    let thread_key = threads.next_key()?;
+    let post_key = posts.next_key()?;
+
+    let post = Post {
+        key: post_key,
+        author: auth.user.ok_or(Error::NotLoggedIn)?.key,
+        body: sanitizer.clean(&thread.body).to_string(),
+        parent: None,
+        children: vec![],
+        thread: thread_key,
+    };
+    posts.insert(post_key, post.clone())?;
+    posts.flush().await?;
+
+    let thread = Thread {
+        key: thread_key,
+        title: sanitizer.clean(&thread.title).to_string(),
+        post: post_key,
+    };
+    threads.insert(thread_key, thread.clone())?;
+    threads.flush().await?;
+
+    Ok(Redirect::to(&format!("/forum/thread/{}", thread_key)).into_response())
+}
+
+async fn thread(
+    auth: AuthSession,
+    State(threads): State<Threads>,
+    State(posts): State<Posts>,
+    State(users): State<Users>,
+    Path(thread_key): Path<ThreadKey>,
+) -> Result<impl IntoResponse> {
+    let thread = threads
+        .get(thread_key)?
+        .ok_or(Error::ThreadNotFound(thread_key))?;
+    let posts = {
+        let mut posts_visited = HashSet::new();
+        let mut posts_visited_in_order = vec![];
+        let mut posts_to_visit = vec![thread.post];
+        while let Some(post_key) = posts_to_visit.pop() {
+            if posts_visited.contains(&post_key) {
+                continue;
+            }
+            posts_visited.insert(post_key);
+            posts_visited_in_order.push(post_key);
+            let post = posts.get(post_key)?.ok_or(Error::PostNotFound(post_key))?;
+            posts_to_visit.extend(post.children.iter().copied());
+        }
+        posts_visited_in_order
+            .iter()
+            .map(|key| match posts.get(*key) {
+                Ok(Some(post)) => Ok(post),
+                Ok(None) => Err(Error::PostNotFound(*key)),
+                Err(e) => Err(e),
+            })
+            .collect::<Result<Vec<_>>>()?
+            .into_iter()
+            .map(|post| {
+                let author = users
+                    .get(post.author)?
+                    .ok_or(Error::UserNotFound(post.author))?;
+                let template = PostTemplate {
+                    key: post.key,
+                    body: post.body,
+                    author: author.username,
+                    avatar: author.avatar,
+                    sse: false,
+                };
+                Ok(template.render()?)
+            })
+            .collect::<Result<Vec<String>>>()?
+            .join("\n")
+    };
+    Ok(HtmlTemplate(ThreadTemplate {
+        key: thread_key,
         username: auth.user.as_ref().map(|user| user.username.clone()),
         posts,
         can_post: match auth.user {
@@ -176,46 +261,45 @@ async fn forum(
     }))
 }
 
-async fn forum_post(
+async fn post_post(
     auth: AuthSession,
-    State(threads): State<Threads>,
     State(posts): State<Posts>,
     State(sanitizer): State<Sanitizer>,
     HxBoosted(boosted): HxBoosted,
+    Path(thread_key): Path<ThreadKey>,
     Form(post): Form<PostSubmission>,
 ) -> Result<impl IntoResponse> {
     debug!("Post created!");
 
     let key = posts.next_key()?;
-    let parent_key = posts.iter().keys().last().transpose()?;
+    let parent_key = posts
+        .iter()
+        .values()
+        .filter_map(|post| post.ok())
+        .filter(|post| post.thread == thread_key)
+        .last()
+        .ok_or(Error::ThreadHasNoPosts(thread_key))?
+        .key;
+    let thread_key = posts
+        .get(parent_key)?
+        .ok_or(Error::PostNotFound(parent_key))?
+        .thread;
 
     let post = Post {
         key,
         author: auth.user.ok_or(Error::NotLoggedIn)?.key,
         body: sanitizer.clean(&post.body).to_string(),
-        parent: parent_key,
+        parent: Some(parent_key),
         children: vec![],
+        thread: thread_key,
     };
     posts.insert(key, post.clone())?;
 
-    if let Some(parent_key) = parent_key {
-        let mut parent = posts
-            .get(parent_key)?
-            .ok_or(Error::PostNotFound(parent_key))?;
-        parent.children.push(key);
-        posts.insert(parent_key, parent)?;
-    } else {
-        let thread_key = threads.next_key()?;
-        threads.insert(
-            key,
-            Thread {
-                key: thread_key,
-                title: "".to_string(),
-                post: key,
-            },
-        )?;
-        threads.flush().await?;
-    }
+    let mut parent = posts
+        .get(parent_key)?
+        .ok_or(Error::PostNotFound(parent_key))?;
+    parent.children.push(key);
+    posts.insert(parent_key, parent)?;
 
     posts.flush().await?;
 
@@ -226,36 +310,114 @@ async fn forum_post(
     }
 }
 
-async fn sse_handler(
+async fn sse_threads(
+    State(threads): State<Threads>,
     State(posts): State<Posts>,
     State(users): State<Users>,
 ) -> Sse<impl Stream<Item = Result<Event>>> {
     debug!("SSE connection established");
 
+    async fn get_valid_single(
+        mut sub: &mut Subscriber,
+        posts: &Posts,
+        users: &Users,
+    ) -> Option<Result<Event>> {
+        loop {
+            let event = (&mut sub).await?;
+            let thread = match event {
+                sled::Event::Insert { value, .. } => Some(value),
+                sled::Event::Remove { .. } => continue,
+            }?;
+            let thread: Thread = option_ok!(BINCODE.deserialize(&thread));
+            let root_post = option_ok!(
+                option_ok!(posts.get(thread.post)).ok_or(Error::PostNotFound(thread.post))
+            );
+            let num_posts = posts
+                .iter()
+                .values()
+                .filter_map(|post| post.ok())
+                .filter(|post| post.thread == thread.key)
+                .count();
+            let author = option_ok!(option_ok!(users.get(root_post.author))
+                .ok_or(Error::UserNotFound(root_post.author)));
+            let template = ThreadIndexTemplate {
+                key: thread.key,
+                title: thread.title,
+                body: root_post.body,
+                num_posts,
+                author: author.username,
+                sse: true,
+            };
+            let data = option_ok!(template.render());
+            let event = Event::default().data(data);
+            return Some(Ok(event));
+        }
+    }
+
+    let sub = threads.watch();
+    let stream = stream::unfold(
+        (sub, posts, users),
+        move |(mut sub, posts, users)| async move {
+            get_valid_single(&mut sub, &posts, &users)
+                .await
+                .map(|event| (event, (sub, posts, users)))
+        },
+    );
+
+    Sse::new(stream).keep_alive(
+        axum::response::sse::KeepAlive::new()
+            .interval(Duration::from_secs(1))
+            .text("keep-alive-text"),
+    )
+}
+
+async fn sse_posts(
+    State(posts): State<Posts>,
+    State(users): State<Users>,
+    Path(thread_key): Path<ThreadKey>,
+) -> Sse<impl Stream<Item = Result<Event>>> {
+    debug!("SSE connection established");
+
+    async fn get_valid_single(
+        mut sub: &mut Subscriber,
+        users: &Users,
+        thread_key: ThreadKey,
+    ) -> Option<Result<Event>> {
+        loop {
+            let event = (&mut sub).await?;
+            let post = match event {
+                sled::Event::Insert { value, .. } => Some(value),
+                sled::Event::Remove { .. } => continue,
+            }?;
+            let post: Post = option_ok!(BINCODE.deserialize(&post));
+            if post.thread != thread_key {
+                continue;
+            }
+            let author = option_ok!(
+                option_ok!(users.get(post.author)).ok_or(Error::UserNotFound(post.author))
+            );
+            let template = PostTemplate {
+                key: post.key,
+                body: post.body,
+                author: author.username,
+                avatar: author.avatar,
+                sse: true,
+            };
+            let data = option_ok!(template.render());
+            let event = Event::default().data(data);
+            return Some(Ok(event));
+        }
+    }
+
     let sub = posts.watch();
-    let stream = stream::unfold((sub, users), move |(mut sub, users)| async {
-        (&mut sub)
-            .await
-            .and_then(|event| {
-                let post = match event {
-                    sled::Event::Insert { value, .. } => Some(value),
-                    sled::Event::Remove { .. } => None,
-                }?;
-                let post: Post = option_ok!(BINCODE.deserialize(&post));
-                let author = some_ok!(users.get(post.author).transpose());
-                let template = PostTemplate {
-                    key: post.key,
-                    body: post.body,
-                    author: author.username,
-                    avatar: author.avatar,
-                    sse: true,
-                };
-                let data = option_ok!(template.render());
-                let event = Event::default().data(data);
-                Some(Ok(event))
-            })
-            .map(|event| (event, (sub, users)))
-    });
+    let stream = stream::unfold(
+        (sub, users, thread_key),
+        move |(mut sub, users, thread_key)| async move {
+            get_valid_single(&mut sub, &users, thread_key)
+                .await
+                .map(|event| (event, (sub, users, thread_key)))
+        },
+    );
 
     Sse::new(stream).keep_alive(
         axum::response::sse::KeepAlive::new()

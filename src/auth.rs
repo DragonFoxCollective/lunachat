@@ -7,12 +7,11 @@ use serde::Deserialize;
 
 use crate::error::{Error, Result};
 use crate::ok_some;
-use crate::state::key::Key;
-use crate::state::user::{User, Users};
+use crate::state::user::{User, UserKey, Users};
 use crate::state::DbTreeLookup as _;
 
 impl AuthUser for User {
-    type Id = Key;
+    type Id = UserKey;
 
     fn id(&self) -> Self::Id {
         self.key

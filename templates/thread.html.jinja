@@ -1,15 +1,14 @@
 {% extends "forum_base.html.jinja" %}
-{% block url %}/forum{% endblock %}
+{% block url %}/forum/thread/{{ key }}{% endblock %}
 {% block content %}
 
-<div id="threads" hx-ext="sse,oob-if-exists" sse-connect="/sse/threads" sse-swap="message" hx-swap="beforeend">
-	{{ threads|safe }}
+<div id="posts" hx-ext="sse,oob-if-exists" sse-connect="/sse/posts/{{ key }}" sse-swap="message" hx-swap="beforeend">
+	{{ posts|safe }}
 </div>
 
 {% if can_post %}
 <form method="post" hx-boost="true" hx-swap="none show:none" hx-push-url="false"
 	hx-on::after-request="if(event.detail.successful) this.reset()">
-	<input type="text" name="title" placeholder="Thread title" required />
 	<input type="text" name="body" placeholder="What's on your mind?" required />
 	<input type="submit" value="Post" />
 </form>

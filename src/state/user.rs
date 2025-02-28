@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use async_trait::async_trait;
 use bincode::Options as _;
 use serde::{Deserialize, Serialize};
@@ -11,21 +13,10 @@ use super::{DbTreeLookup, TableType, BINCODE};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct User {
-    pub key: Key,
+    pub key: UserKey,
     pub username: String,
     pub password: String,
     pub avatar: Option<String>,
-}
-
-impl Default for User {
-    fn default() -> Self {
-        Self {
-            key: Key::default(),
-            username: "[deactivated]".to_string(),
-            password: String::default(),
-            avatar: None,
-        }
-    }
 }
 
 // Here we've implemented `Debug` manually to avoid accidentally logging the
@@ -38,6 +29,15 @@ impl std::fmt::Debug for User {
             .field("password", &"[redacted]")
             .field("avatar", &self.avatar)
             .finish()
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct UserKey(Key);
+
+impl Display for UserKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
@@ -65,8 +65,8 @@ impl Users {
         ))
     }
 
-    pub fn next_key(&self) -> Result<Key> {
-        self.highest_keys.next(TableType::Users)
+    pub fn next_key(&self) -> Result<UserKey> {
+        self.highest_keys.next(TableType::Users).map(UserKey)
     }
 
     pub fn get_by_username(&self, username: &String) -> Result<Option<User>> {
@@ -78,12 +78,12 @@ impl Users {
 }
 
 #[async_trait]
-impl DbTreeLookup<Key, User> for Users {
+impl DbTreeLookup<UserKey, User> for Users {
     fn tree(&self) -> &Tree {
         &self.users
     }
 
-    fn insert(&self, key: Key, value: User) -> Result<()> {
+    fn insert(&self, key: UserKey, value: User) -> Result<()> {
         let key: IVec = BINCODE.serialize(&key)?.into();
         let username: IVec = value.username.as_bytes().into();
         let value: IVec = BINCODE.serialize(&value)?.into();

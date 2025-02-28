@@ -4,7 +4,9 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use tracing::error;
 
-use crate::state::key::Key;
+use crate::state::post::PostKey;
+use crate::state::thread::ThreadKey;
+use crate::state::user::UserKey;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -31,7 +33,13 @@ pub enum Error {
     #[error("io error: {0}")]
     IO(#[from] std::io::Error),
     #[error("post not found: {0}")]
-    PostNotFound(Key),
+    PostNotFound(PostKey),
+    #[error("thread not found: {0}")]
+    ThreadNotFound(ThreadKey),
+    #[error("user not found: {0}")]
+    UserNotFound(UserKey),
+    #[error("thread has no posts: {0}")]
+    ThreadHasNoPosts(ThreadKey),
 }
 
 impl IntoResponse for Error {
