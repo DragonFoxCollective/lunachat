@@ -29,3 +29,43 @@ macro_rules! option_ok {
         }
     };
 }
+
+#[macro_export]
+macro_rules! some_or_return {
+    ($value:expr) => {
+        match $value {
+            Some(value) => value,
+            None => return,
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! some_or_continue {
+    ($value:expr) => {
+        match $value {
+            Some(value) => value,
+            None => continue,
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! ok_or_return {
+    ($value:expr) => {
+        match $value {
+            Ok(value) => value,
+            Err(_) => return,
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! ok_or_continue {
+    ($value:expr) => {
+        match $value {
+            Ok(value) => value,
+            Err(_) => continue,
+        }
+    };
+}

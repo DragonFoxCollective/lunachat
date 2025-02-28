@@ -12,21 +12,21 @@ use axum::routing::{get, post};
 use axum::{Form, Json, Router};
 use axum_htmx::HxBoosted;
 use axum_login::tower_sessions::{MemoryStore, SessionManagerLayer};
-use axum_login::{permission_required, AuthManagerLayerBuilder, AuthzBackend};
+use axum_login::{AuthManagerLayerBuilder, AuthzBackend, permission_required};
 use bincode::Options as _;
 use dragon_fox::auth::{AuthSession, Backend, Credentials, NextUrl, Permission};
 use dragon_fox::error::{Error, Result};
-use dragon_fox::option_ok;
+use dragon_fox::some_or_continue;
 use dragon_fox::state::post::{Post, PostSubmission, Posts};
 use dragon_fox::state::sanitizer::Sanitizer;
 use dragon_fox::state::thread::{Thread, ThreadKey, ThreadSubmission, Threads};
 use dragon_fox::state::user::{User, Users};
-use dragon_fox::state::{AppState, DbTreeLookup, TableType, Versions, BINCODE};
+use dragon_fox::state::{AppState, BINCODE, DbTreeLookup, TableType, Versions};
 use dragon_fox::templates::{
     ForumTemplate, HtmlTemplate, IndexTemplate, LoginTemplate, PostTemplate, ThreadIndexTemplate,
     ThreadTemplate,
 };
-use futures::{stream, Stream};
+use futures::{Stream, stream};
 use serde::{Deserialize, Serialize};
 use sled::Subscriber;
 use tokio::process::Command;
@@ -321,25 +321,26 @@ async fn sse_threads(
         mut sub: &mut Subscriber,
         posts: &Posts,
         users: &Users,
-    ) -> Option<Result<Event>> {
+    ) -> Result<Event> {
         loop {
-            let event = (&mut sub).await?;
+            let event = some_or_continue!((&mut sub).await);
             let thread = match event {
-                sled::Event::Insert { value, .. } => Some(value),
+                sled::Event::Insert { value, .. } => value,
                 sled::Event::Remove { .. } => continue,
-            }?;
-            let thread: Thread = option_ok!(BINCODE.deserialize(&thread));
-            let root_post = option_ok!(
-                option_ok!(posts.get(thread.post)).ok_or(Error::PostNotFound(thread.post))
-            );
+            };
+            let thread: Thread = BINCODE.deserialize(&thread)?;
+            let root_post = posts
+                .get(thread.post)?
+                .ok_or(Error::PostNotFound(thread.post))?;
             let num_posts = posts
                 .iter()
                 .values()
                 .filter_map(|post| post.ok())
                 .filter(|post| post.thread == thread.key)
                 .count();
-            let author = option_ok!(option_ok!(users.get(root_post.author))
-                .ok_or(Error::UserNotFound(root_post.author)));
+            let author = users
+                .get(root_post.author)?
+                .ok_or(Error::UserNotFound(root_post.author))?;
             let template = ThreadIndexTemplate {
                 key: thread.key,
                 title: thread.title,
@@ -348,21 +349,19 @@ async fn sse_threads(
                 author: author.username,
                 sse: true,
             };
-            let data = option_ok!(template.render());
+            let data = template.render()?;
             let event = Event::default().data(data);
-            return Some(Ok(event));
+            return Ok(event);
         }
     }
 
     let sub = threads.watch();
-    let stream = stream::unfold(
-        (sub, posts, users),
-        move |(mut sub, posts, users)| async move {
-            get_valid_single(&mut sub, &posts, &users)
-                .await
-                .map(|event| (event, (sub, posts, users)))
-        },
-    );
+    let stream = stream::unfold((sub, posts, users), async move |(mut sub, posts, users)| {
+        Some((
+            get_valid_single(&mut sub, &posts, &users).await,
+            (sub, posts, users),
+        ))
+    });
 
     Sse::new(stream).keep_alive(
         axum::response::sse::KeepAlive::new()
@@ -382,20 +381,20 @@ async fn sse_posts(
         mut sub: &mut Subscriber,
         users: &Users,
         thread_key: ThreadKey,
-    ) -> Option<Result<Event>> {
+    ) -> Result<Event> {
         loop {
-            let event = (&mut sub).await?;
+            let event = some_or_continue!((&mut sub).await);
             let post = match event {
-                sled::Event::Insert { value, .. } => Some(value),
+                sled::Event::Insert { value, .. } => value,
                 sled::Event::Remove { .. } => continue,
-            }?;
-            let post: Post = option_ok!(BINCODE.deserialize(&post));
+            };
+            let post: Post = BINCODE.deserialize(&post)?;
             if post.thread != thread_key {
                 continue;
             }
-            let author = option_ok!(
-                option_ok!(users.get(post.author)).ok_or(Error::UserNotFound(post.author))
-            );
+            let author = users
+                .get(post.author)?
+                .ok_or(Error::UserNotFound(post.author))?;
             let template = PostTemplate {
                 key: post.key,
                 body: post.body,
@@ -403,19 +402,20 @@ async fn sse_posts(
                 avatar: author.avatar,
                 sse: true,
             };
-            let data = option_ok!(template.render());
+            let data = template.render()?;
             let event = Event::default().data(data);
-            return Some(Ok(event));
+            return Ok(event);
         }
     }
 
     let sub = posts.watch();
     let stream = stream::unfold(
         (sub, users, thread_key),
-        move |(mut sub, users, thread_key)| async move {
-            get_valid_single(&mut sub, &users, thread_key)
-                .await
-                .map(|event| (event, (sub, users, thread_key)))
+        async move |(mut sub, users, thread_key)| {
+            Some((
+                get_valid_single(&mut sub, &users, thread_key).await,
+                (sub, users, thread_key),
+            ))
         },
     );
 
@@ -441,7 +441,7 @@ async fn login_post(
                 error: Some("Username or password incorrect".into()),
                 next: creds.next,
             })
-            .into_response())
+            .into_response());
         }
     };
 
