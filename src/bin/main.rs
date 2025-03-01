@@ -101,9 +101,9 @@ async fn main() -> Result<()> {
         ))
         .route("/", get(index))
         .route("/forum", get(forum))
+        .route("/forum.sse", get(forum_sse))
         .route("/forum/thread/{thread_key}", get(thread))
-        .route("/sse/threads", get(sse_threads))
-        .route("/sse/posts/{thread_key}", get(sse_posts))
+        .route("/forum/thread/{thread_key}.sse", get(thread_sse))
         .route("/login", get(login))
         .route("/login", post(login_post))
         .route("/logout", get(logout_post))
@@ -310,7 +310,7 @@ async fn post_post(
     }
 }
 
-async fn sse_threads(
+async fn forum_sse(
     State(threads): State<Threads>,
     State(posts): State<Posts>,
     State(users): State<Users>,
@@ -370,7 +370,7 @@ async fn sse_threads(
     )
 }
 
-async fn sse_posts(
+async fn thread_sse(
     State(posts): State<Posts>,
     State(users): State<Users>,
     Path(thread_key): Path<ThreadKey>,

@@ -2,7 +2,7 @@
 {% block url %}/forum{% endblock %}
 {% block content %}
 
-<div id="threads" hx-ext="sse,oob-if-exists" sse-connect="/sse/threads" sse-swap="message" hx-swap="beforeend">
+<div id="threads" hx-ext="sse,oob-if-exists" sse-connect="/forum.sse" sse-swap="message" hx-swap="beforeend">
 	{{ threads|safe }}
 </div>
 
