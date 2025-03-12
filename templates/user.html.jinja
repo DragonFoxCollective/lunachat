@@ -1,0 +1,10 @@
+{% extends "forum_base.html.jinja" %}
+{% block url %}/user/{{ user.key }}{% endblock %}
+{% block content %}
+
+{% if let Some(avatar) = user.avatar %}
+<img src="{{ avatar }}" alt="{{ user.username }}'s Profile Picture" onerror="this.style.display='none'">
+{% endif %}
+<p>{{ user.username }}</p>
+
+{% endblock %}

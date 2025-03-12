@@ -1,10 +1,11 @@
 use askama::Template;
 use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse, Response};
-use serde::{Deserialize, Serialize};
 
-use crate::state::post::PostKey;
 use crate::state::thread::ThreadKey;
+use crate::state::user::User;
+
+pub mod partial;
 
 #[derive(Template)]
 #[template(path = "index.html.jinja")]
@@ -13,39 +14,18 @@ pub struct IndexTemplate;
 #[derive(Template)]
 #[template(path = "forum.html.jinja")]
 pub struct ForumTemplate {
-    pub username: Option<String>,
+    pub logged_in_user: Option<User>,
     pub threads: String,
     pub can_post: bool,
 }
 
 #[derive(Template)]
-#[template(path = "thread_index.html.jinja")]
-pub struct ThreadIndexTemplate {
-    pub key: ThreadKey,
-    pub title: String,
-    pub body: String,
-    pub num_posts: usize,
-    pub author: String,
-    pub sse: bool,
-}
-
-#[derive(Template)]
 #[template(path = "thread.html.jinja")]
 pub struct ThreadTemplate {
+    pub logged_in_user: Option<User>,
     pub key: ThreadKey,
-    pub username: Option<String>,
     pub posts: String,
     pub can_post: bool,
-}
-
-#[derive(Template, Clone, Serialize, Deserialize)]
-#[template(path = "post.html.jinja")]
-pub struct PostTemplate {
-    pub key: PostKey,
-    pub author: String,
-    pub avatar: Option<String>,
-    pub body: String,
-    pub sse: bool,
 }
 
 #[derive(Template)]
@@ -53,6 +33,13 @@ pub struct PostTemplate {
 pub struct LoginTemplate {
     pub error: Option<String>,
     pub next: Option<String>,
+}
+
+#[derive(Template)]
+#[template(path = "user.html.jinja")]
+pub struct UserTemplate {
+    pub logged_in_user: Option<User>,
+    pub user: User,
 }
 
 /// A wrapper type that we'll use to encapsulate HTML parsed by askama into valid HTML for axum to serve.

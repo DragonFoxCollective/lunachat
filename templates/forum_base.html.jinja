@@ -8,8 +8,8 @@
 {% endblock %}
 
 {% block header_right %}
-{% if let Some(username) = username %}
-<p>Logged in as: {{ username }}</p>
+{% if let Some(logged_in_user) = logged_in_user %}
+<p>Logged in as: <a href="/user/{{ logged_in_user.key }}">{{ logged_in_user.username }}</a></p>
 <a href="/logout">Logout</a>
 {% else %}
 <a href="/login">Login</a>

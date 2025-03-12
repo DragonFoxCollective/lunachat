@@ -1,0 +1,11 @@
+<div id="post_{{ key }}" class="post" {% if sse %} hx-swap-oob="if-exists" {% endif %}>
+	<div class="post-profile">
+		{% if let Some(avatar) = author.avatar %}
+		<img src="{{ avatar }}" alt="{{ author.username }}'s Profile Picture" onerror="this.style.display='none'">
+		{% endif %}
+		<p><a href="/user/{{ author.key }}">{{ author.username }}</a></p>
+	</div>
+	<article class="post-body">
+		<p>{{ body|safe }}</p>
+	</article>
+</div>

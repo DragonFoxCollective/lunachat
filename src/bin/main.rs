@@ -20,11 +20,11 @@ use dragon_fox::some_or_continue;
 use dragon_fox::state::post::{Post, PostSubmission, Posts};
 use dragon_fox::state::sanitizer::Sanitizer;
 use dragon_fox::state::thread::{Thread, ThreadKey, ThreadSubmission, Threads};
-use dragon_fox::state::user::{User, Users};
+use dragon_fox::state::user::{User, UserKey, Users};
 use dragon_fox::state::{AppState, BINCODE, DbTreeLookup, TableType, Versions};
 use dragon_fox::templates::{
-    ForumTemplate, HtmlTemplate, IndexTemplate, LoginTemplate, PostTemplate, ThreadIndexTemplate,
-    ThreadTemplate,
+    ForumTemplate, HtmlTemplate, IndexTemplate, LoginTemplate, ThreadTemplate, UserTemplate,
+    partial,
 };
 use futures::{Stream, stream};
 use serde::{Deserialize, Serialize};
@@ -104,6 +104,7 @@ async fn main() -> Result<()> {
         .route("/forum/sse", get(forum_sse))
         .route("/forum/thread/{thread_key}", get(thread))
         .route("/forum/thread/{thread_key}/sse", get(thread_sse))
+        .route("/user/{user_key}", get(user))
         .route("/login", get(login))
         .route("/login", post(login_post))
         .route("/logout", get(logout_post))
@@ -146,12 +147,12 @@ async fn forum(
             let author = users
                 .get(post.author)?
                 .ok_or(Error::UserNotFound(post.author))?;
-            let template = ThreadIndexTemplate {
+            let template = partial::ThreadTemplate {
                 key: thread.key,
                 title: thread.title,
                 body: post.body,
                 num_posts,
-                author: author.username,
+                author,
                 sse: false,
             };
             Ok(template.render()?)
@@ -159,7 +160,7 @@ async fn forum(
         .collect::<Result<Vec<String>>>()?
         .join("\n");
     Ok(HtmlTemplate(ForumTemplate {
-        username: auth.user.as_ref().map(|user| user.username.clone()),
+        logged_in_user: auth.user.clone(),
         threads,
         can_post: match auth.user {
             Some(user) => auth.backend.has_perm(&user, Permission::Post).await?,
@@ -238,11 +239,10 @@ async fn thread(
                 let author = users
                     .get(post.author)?
                     .ok_or(Error::UserNotFound(post.author))?;
-                let template = PostTemplate {
+                let template = partial::PostTemplate {
                     key: post.key,
                     body: post.body,
-                    author: author.username,
-                    avatar: author.avatar,
+                    author,
                     sse: false,
                 };
                 Ok(template.render()?)
@@ -251,8 +251,8 @@ async fn thread(
             .join("\n")
     };
     Ok(HtmlTemplate(ThreadTemplate {
+        logged_in_user: auth.user.clone(),
         key: thread_key,
-        username: auth.user.as_ref().map(|user| user.username.clone()),
         posts,
         can_post: match auth.user {
             Some(user) => auth.backend.has_perm(&user, Permission::Post).await?,
@@ -341,12 +341,12 @@ async fn forum_sse(
             let author = users
                 .get(root_post.author)?
                 .ok_or(Error::UserNotFound(root_post.author))?;
-            let template = ThreadIndexTemplate {
+            let template = partial::ThreadTemplate {
                 key: thread.key,
                 title: thread.title,
                 body: root_post.body,
                 num_posts,
-                author: author.username,
+                author,
                 sse: true,
             };
             let data = template.render()?;
@@ -395,11 +395,10 @@ async fn thread_sse(
             let author = users
                 .get(post.author)?
                 .ok_or(Error::UserNotFound(post.author))?;
-            let template = PostTemplate {
+            let template = partial::PostTemplate {
                 key: post.key,
                 body: post.body,
-                author: author.username,
-                avatar: author.avatar,
+                author,
                 sse: true,
             };
             let data = template.render()?;
@@ -424,6 +423,18 @@ async fn thread_sse(
             .interval(Duration::from_secs(1))
             .text("keep-alive-text"),
     )
+}
+
+async fn user(
+    auth: AuthSession,
+    State(users): State<Users>,
+    Path(user_key): Path<UserKey>,
+) -> Result<impl IntoResponse> {
+    let user = users.get(user_key)?.ok_or(Error::UserNotFound(user_key))?;
+    Ok(HtmlTemplate(UserTemplate {
+        logged_in_user: auth.user,
+        user,
+    }))
 }
 
 async fn login(Query(NextUrl { next }): Query<NextUrl>) -> Result<impl IntoResponse> {

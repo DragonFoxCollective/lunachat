@@ -1,6 +1,7 @@
 <div id="thread_{{ key }}" class="thread-index" {% if sse %} hx-swap-oob="if-exists" {% endif %}>
 	<div class="thread-title">
-		<p><a href="/forum/thread/{{ key }}">{{ title }}</a> by {{ author }}</p>
+		<p><a href="/forum/thread/{{ key }}">{{ title }}</a>
+			by <a href="/user/{{ author.key }}">{{ author.username }}</a></p>
 		<p class="thread-body">{{ body }}</p>
 	</div>
 	<div class="thread-stats">
