@@ -14,18 +14,18 @@ use axum_htmx::HxBoosted;
 use axum_login::tower_sessions::{MemoryStore, SessionManagerLayer};
 use axum_login::{AuthManagerLayerBuilder, AuthzBackend, permission_required};
 use bincode::Options as _;
-use dragon_fox::auth::{AuthSession, Backend, Credentials, NextUrl, Permission};
-use dragon_fox::error::{Error, Result};
-use dragon_fox::some_or_continue;
-use dragon_fox::state::post::{Post, PostSubmission, Posts};
-use dragon_fox::state::sanitizer::Sanitizer;
-use dragon_fox::state::thread::{Thread, ThreadKey, ThreadSubmission, Threads};
-use dragon_fox::state::user::{User, UserKey, Users};
-use dragon_fox::state::{AppState, BINCODE, DbTreeLookup, TableType, Versions};
-use dragon_fox::templates::{
+use futures::{Stream, stream};
+use lunachat::auth::{AuthSession, Backend, Credentials, NextUrl, Permission};
+use lunachat::error::{Error, Result};
+use lunachat::some_or_continue;
+use lunachat::state::post::{Post, PostSubmission, Posts};
+use lunachat::state::sanitizer::Sanitizer;
+use lunachat::state::thread::{Thread, ThreadKey, ThreadSubmission, Threads};
+use lunachat::state::user::{User, UserKey, Users};
+use lunachat::state::{AppState, BINCODE, DbTreeLookup, TableType, Versions};
+use lunachat::templates::{
     ForumTemplate, HtmlTemplate, LoginTemplate, ThreadTemplate, UserTemplate, partial,
 };
-use futures::{Stream, stream};
 use sled::Subscriber;
 use tower_http::services::ServeDir;
 use tracing::debug;
@@ -33,7 +33,7 @@ use tracing::debug;
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
-        .with_env_filter("dragon_fox=trace")
+        .with_env_filter("lunachat=trace")
         .init();
 
     // DB
@@ -109,7 +109,7 @@ async fn main() -> Result<()> {
         .with_state(state)
         .nest_service("/static", ServeDir::new("static"));
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8002").await?;
     axum::serve(listener, app).await?;
 
     Ok(())
