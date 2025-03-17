@@ -12,7 +12,8 @@ use lunachat::state::thread::ThreadKey;
 use lunachat::state::user::User;
 use lunachat::templates::partial::{PostSse, ThreadSse};
 use lunachat::templates::{
-    HtmlTemplate, LoginPost, LogoutPost, PostPost, RegisterPost, ThreadPost,
+    ForumGet, HtmlTemplate, LoginGet, LoginPost, LogoutPost, PostPost, RegisterPost, ThreadGet,
+    ThreadPost, UserGet,
 };
 use tower_http::services::ServeDir;
 use tracing::debug;
@@ -49,13 +50,10 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn forum(
-    auth: AuthSession,
-    template: lunachat::templates::ForumTemplate,
-) -> Result<impl IntoResponse> {
+async fn forum(auth: AuthSession, forum: ForumGet) -> Result<impl IntoResponse> {
     Ok(HtmlTemplate(ForumTemplate {
         logged_in_user: auth.user.clone(),
-        threads: template
+        threads: forum
             .threads
             .iter()
             .cloned()
@@ -87,20 +85,17 @@ async fn forum_sse(sse: ThreadSse) -> impl IntoResponse {
     })
 }
 
-pub async fn thread_post(template: ThreadPost) -> impl IntoResponse {
+pub async fn thread_post(thread: ThreadPost) -> impl IntoResponse {
     debug!("Thread created!");
 
-    Redirect::to(&format!("/thread/{}", template.0))
+    Redirect::to(&format!("/thread/{}", thread.0))
 }
 
-async fn thread(
-    auth: AuthSession,
-    template: lunachat::templates::ThreadTemplate,
-) -> Result<impl IntoResponse> {
+async fn thread(auth: AuthSession, thread: ThreadGet) -> Result<impl IntoResponse> {
     Ok(HtmlTemplate(ThreadTemplate {
         logged_in_user: auth.user.clone(),
-        key: template.key,
-        posts: template
+        key: thread.key,
+        posts: thread
             .posts
             .iter()
             .cloned()
@@ -130,32 +125,32 @@ async fn thread_sse(sse: PostSse) -> impl IntoResponse {
     })
 }
 
-pub async fn post_post(HxBoosted(boosted): HxBoosted, template: PostPost) -> impl IntoResponse {
+pub async fn post_post(HxBoosted(boosted): HxBoosted, post: PostPost) -> impl IntoResponse {
     debug!("Post created!");
 
     if boosted {
         ().into_response() // Handled by SSE
     } else {
-        Redirect::to(&format!("/thread/{}", template.1)).into_response()
+        Redirect::to(&format!("/thread/{}", post.1)).into_response()
     }
 }
 
-async fn user(auth: AuthSession, template: lunachat::templates::UserTemplate) -> impl IntoResponse {
+async fn user(auth: AuthSession, user: UserGet) -> impl IntoResponse {
     HtmlTemplate(UserTemplate {
         logged_in_user: auth.user.clone(),
-        user: template.user,
+        user: user.user,
     })
 }
 
-async fn login(template: lunachat::templates::LoginTemplate) -> impl IntoResponse {
+async fn login(login: LoginGet) -> impl IntoResponse {
     HtmlTemplate(LoginTemplate {
-        error: template.error,
-        next: template.next,
+        error: login.error,
+        next: login.next,
     })
 }
 
-async fn login_post(template: LoginPost) -> impl IntoResponse {
-    match template {
+async fn login_post(login: LoginPost) -> impl IntoResponse {
+    match login {
         LoginPost::Success { user, next } => {
             debug!("Logged in user: {:?}", user);
             Redirect::to(next.as_ref().map_or("/", |v| v)).into_response()
@@ -168,12 +163,12 @@ async fn login_post(template: LoginPost) -> impl IntoResponse {
     }
 }
 
-pub async fn logout_post(_template: LogoutPost) -> impl IntoResponse {
+pub async fn logout_post(_logout: LogoutPost) -> impl IntoResponse {
     Redirect::to("/").into_response()
 }
 
-async fn register_post(template: RegisterPost) -> impl IntoResponse {
-    match template {
+async fn register_post(register: RegisterPost) -> impl IntoResponse {
+    match register {
         RegisterPost::Success { user, next } => {
             debug!("Registered user: {:?}", user);
             Redirect::to(next.as_ref().map_or("/", |v| v)).into_response()

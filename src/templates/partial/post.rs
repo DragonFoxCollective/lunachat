@@ -18,7 +18,7 @@ use crate::state::user::{User, Users};
 use crate::state::{BINCODE, DbTreeLookup as _};
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct PostTemplate {
+pub struct PartialPostGet {
     pub key: PostKey,
     pub author: User,
     pub body: String,
@@ -34,13 +34,13 @@ pub struct PostSse {
 impl PostSse {
     pub fn into_sse(
         self,
-        mapper: impl Fn(PostTemplate) -> Result<String> + Send + Sync + 'static,
+        mapper: impl Fn(PartialPostGet) -> Result<String> + Send + Sync + 'static,
     ) -> impl IntoResponse {
         async fn get_valid_single(
             mut sub: &mut Subscriber,
             users: &Users,
             thread_key: &ThreadKey,
-            mapper: impl Fn(PostTemplate) -> Result<String>,
+            mapper: impl Fn(PartialPostGet) -> Result<String>,
         ) -> Result<Event> {
             loop {
                 let event = some_or_continue!((&mut sub).await);
@@ -55,7 +55,7 @@ impl PostSse {
                 let author = users
                     .get(post.author)?
                     .ok_or(Error::UserNotFound(post.author))?;
-                let template = PostTemplate {
+                let template = PartialPostGet {
                     key: post.key,
                     body: post.body,
                     author,

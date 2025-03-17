@@ -6,11 +6,11 @@ use crate::error::{Error, Result};
 use crate::state::DbTreeLookup as _;
 use crate::state::user::{User, UserKey, Users};
 
-pub struct UserTemplate {
+pub struct UserGet {
     pub user: User,
 }
 
-impl<S> FromRequestParts<S> for UserTemplate
+impl<S> FromRequestParts<S> for UserGet
 where
     S: Send + Sync,
 {
@@ -21,6 +21,6 @@ where
         let Path(user_key) = parts.extract::<Path<UserKey>>().await?;
 
         let user = users.get(user_key)?.ok_or(Error::UserNotFound(user_key))?;
-        Ok(UserTemplate { user })
+        Ok(UserGet { user })
     }
 }

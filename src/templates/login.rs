@@ -10,12 +10,12 @@ use crate::error::{Error, Result};
 use crate::state::DbTreeLookup as _;
 use crate::state::user::{User, Users};
 
-pub struct LoginTemplate {
+pub struct LoginGet {
     pub error: Option<String>,
     pub next: Option<String>,
 }
 
-impl<S> FromRequestParts<S> for LoginTemplate
+impl<S> FromRequestParts<S> for LoginGet
 where
     S: Send + Sync,
 {
@@ -24,7 +24,7 @@ where
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self> {
         let Query(NextUrl { next }) = parts.extract::<Query<NextUrl>>().await?;
 
-        Ok(LoginTemplate { error: None, next })
+        Ok(LoginGet { error: None, next })
     }
 }
 

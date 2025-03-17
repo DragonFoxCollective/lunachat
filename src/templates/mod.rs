@@ -2,10 +2,10 @@ use askama::Template;
 use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse, Response};
 
-pub use forum::ForumTemplate;
-pub use login::{LoginPost, LoginTemplate, LogoutPost, RegisterPost};
-pub use thread::{PostPost, ThreadPost, ThreadTemplate};
-pub use user::UserTemplate;
+pub use forum::ForumGet;
+pub use login::{LoginGet, LoginPost, LogoutPost, RegisterPost};
+pub use thread::{PostPost, ThreadGet, ThreadPost};
+pub use user::UserGet;
 
 mod forum;
 mod login;

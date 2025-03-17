@@ -14,12 +14,12 @@ use crate::state::user::Users;
 
 use super::partial;
 
-pub struct ThreadTemplate {
+pub struct ThreadGet {
     pub key: ThreadKey,
-    pub posts: Vec<partial::PostTemplate>,
+    pub posts: Vec<partial::PartialPostGet>,
 }
 
-impl<S> FromRequestParts<S> for ThreadTemplate
+impl<S> FromRequestParts<S> for ThreadGet
 where
     S: Send + Sync,
 {
@@ -60,7 +60,7 @@ where
                     let author = users
                         .get(post.author)?
                         .ok_or(Error::UserNotFound(post.author))?;
-                    let template = partial::PostTemplate {
+                    let template = partial::PartialPostGet {
                         key: post.key,
                         body: post.body,
                         author,
@@ -68,9 +68,9 @@ where
                     };
                     Ok(template)
                 })
-                .collect::<Result<Vec<partial::PostTemplate>>>()?
+                .collect::<Result<Vec<partial::PartialPostGet>>>()?
         };
-        Ok(ThreadTemplate {
+        Ok(ThreadGet {
             key: thread_key,
             posts,
         })

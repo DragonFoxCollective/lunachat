@@ -1,5 +1,5 @@
-pub use post::{PostSse, PostTemplate};
-pub use thread::{ThreadSse, ThreadTemplate};
+pub use post::{PartialPostGet, PostSse};
+pub use thread::{PartialThreadGet, ThreadSse};
 
 mod post;
 mod thread;
