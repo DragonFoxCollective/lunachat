@@ -2,44 +2,19 @@ use askama::Template;
 use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse, Response};
 
-use crate::state::thread::ThreadKey;
-use crate::state::user::User;
+pub use forum::ForumTemplate;
+pub use login::{LoginPost, LoginTemplate, LogoutPost, RegisterPost};
+pub use thread::{PostPost, ThreadPost, ThreadTemplate};
+pub use user::UserTemplate;
 
+mod forum;
+mod login;
 pub mod partial;
-
-#[derive(Template)]
-#[template(path = "forum.html.jinja")]
-pub struct ForumTemplate {
-    pub logged_in_user: Option<User>,
-    pub threads: String,
-    pub can_post: bool,
-}
-
-#[derive(Template)]
-#[template(path = "thread.html.jinja")]
-pub struct ThreadTemplate {
-    pub logged_in_user: Option<User>,
-    pub key: ThreadKey,
-    pub posts: String,
-    pub can_post: bool,
-}
-
-#[derive(Template)]
-#[template(path = "login.html.jinja")]
-pub struct LoginTemplate {
-    pub error: Option<String>,
-    pub next: Option<String>,
-}
-
-#[derive(Template)]
-#[template(path = "user.html.jinja")]
-pub struct UserTemplate {
-    pub logged_in_user: Option<User>,
-    pub user: User,
-}
+mod thread;
+mod user;
 
 /// A wrapper type that we'll use to encapsulate HTML parsed by askama into valid HTML for axum to serve.
-pub struct HtmlTemplate<T>(pub T);
+pub struct HtmlTemplate<T: Template>(pub T);
 
 /// Allows us to convert Askama HTML templates into valid HTML for axum to serve in the response.
 impl<T> IntoResponse for HtmlTemplate<T>

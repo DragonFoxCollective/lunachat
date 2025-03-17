@@ -1,16 +1,11 @@
 use std::marker::PhantomData;
 
 use async_trait::async_trait;
-use axum::extract::FromRef;
 use bincode::Options as _;
 use derive_more::{Deref, DerefMut};
 use key::HighestKeys;
-use post::Posts;
-use sanitizer::Sanitizer;
 use serde::{Deserialize, Serialize};
 use sled::{Db, IVec, Tree};
-use thread::Threads;
-use user::Users;
 
 use crate::error::Result;
 use crate::{ok_some, option_ok, some_ok};
@@ -26,38 +21,6 @@ lazy_static::lazy_static! {
         bincode::DefaultOptions,
         bincode::config::BigEndian,
     > = bincode::options().with_big_endian();
-}
-
-#[derive(Clone)]
-pub struct AppState {
-    pub posts: Posts,
-    pub users: Users,
-    pub sanitizer: Sanitizer,
-    pub threads: Threads,
-}
-
-impl FromRef<AppState> for Posts {
-    fn from_ref(app_state: &AppState) -> Posts {
-        app_state.posts.clone()
-    }
-}
-
-impl FromRef<AppState> for Users {
-    fn from_ref(app_state: &AppState) -> Users {
-        app_state.users.clone()
-    }
-}
-
-impl FromRef<AppState> for Sanitizer {
-    fn from_ref(app_state: &AppState) -> Sanitizer {
-        app_state.sanitizer.clone()
-    }
-}
-
-impl FromRef<AppState> for Threads {
-    fn from_ref(app_state: &AppState) -> Threads {
-        app_state.threads.clone()
-    }
 }
 
 #[async_trait]

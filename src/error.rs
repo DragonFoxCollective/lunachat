@@ -40,6 +40,16 @@ pub enum Error {
     UserNotFound(UserKey),
     #[error("thread has no posts: {0}")]
     ThreadHasNoPosts(ThreadKey),
+    #[error("extension rejected: {0}")]
+    ExtensionRejected(#[from] axum::extract::rejection::ExtensionRejection),
+    #[error("path rejected: {0}")]
+    PathRejected(#[from] axum::extract::rejection::PathRejection),
+    #[error("query rejected: {0}")]
+    QueryRejected(#[from] axum::extract::rejection::QueryRejection),
+    #[error("form rejected: {0}")]
+    FormRejected(#[from] axum::extract::rejection::FormRejection),
+    #[error("auth not found")]
+    AuthNotFound,
 }
 
 impl IntoResponse for Error {

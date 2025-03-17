@@ -1,5 +1,4 @@
 {% extends "base.html.jinja" %}
-{% block url %}/thread/{{ key }}{% endblock %}
 {% block content %}
 
 <div id="posts" hx-ext="sse,oob-if-exists" sse-connect="/thread/{{ key }}/sse" sse-swap="message" hx-swap="beforeend">
