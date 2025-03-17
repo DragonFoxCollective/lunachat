@@ -9,7 +9,7 @@ use axum::extract::{Path, Query, State};
 use axum::response::sse::Event;
 use axum::response::{IntoResponse, Redirect, Sse};
 use axum::routing::{get, post};
-use axum::{Form, Json, Router};
+use axum::{Form, Router};
 use axum_htmx::HxBoosted;
 use axum_login::tower_sessions::{MemoryStore, SessionManagerLayer};
 use axum_login::{AuthManagerLayerBuilder, AuthzBackend, permission_required};
@@ -23,15 +23,12 @@ use dragon_fox::state::thread::{Thread, ThreadKey, ThreadSubmission, Threads};
 use dragon_fox::state::user::{User, UserKey, Users};
 use dragon_fox::state::{AppState, BINCODE, DbTreeLookup, TableType, Versions};
 use dragon_fox::templates::{
-    ForumTemplate, HtmlTemplate, IndexTemplate, LoginTemplate, ThreadTemplate, UserTemplate,
-    partial,
+    ForumTemplate, HtmlTemplate, LoginTemplate, ThreadTemplate, UserTemplate, partial,
 };
 use futures::{Stream, stream};
-use serde::{Deserialize, Serialize};
 use sled::Subscriber;
-use tokio::process::Command;
 use tower_http::services::ServeDir;
-use tracing::{debug, warn};
+use tracing::debug;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -92,24 +89,22 @@ async fn main() -> Result<()> {
     };
 
     let app = Router::new()
-        .route("/forum", post(thread_post))
-        .route("/forum/thread/{thread_key}", post(post_post))
+        .route("/thread", post(thread_post))
+        .route("/thread/{thread_key}", post(post_post))
         .route_layer(permission_required!(
             Backend,
             login_url = "/login",
             Permission::Post
         ))
-        .route("/", get(index))
-        .route("/forum", get(forum))
-        .route("/forum/sse", get(forum_sse))
-        .route("/forum/thread/{thread_key}", get(thread))
-        .route("/forum/thread/{thread_key}/sse", get(thread_sse))
+        .route("/", get(forum))
+        .route("/sse", get(forum_sse))
+        .route("/thread/{thread_key}", get(thread))
+        .route("/thread/{thread_key}/sse", get(thread_sse))
         .route("/user/{user_key}", get(user))
         .route("/login", get(login))
         .route("/login", post(login_post))
         .route("/logout", get(logout_post))
         .route("/register", post(register_post))
-        .route("/deploy", post(deploy_post))
         .layer(auth_layer)
         .with_state(state)
         .nest_service("/static", ServeDir::new("static"));
@@ -118,10 +113,6 @@ async fn main() -> Result<()> {
     axum::serve(listener, app).await?;
 
     Ok(())
-}
-
-async fn index() -> Result<impl IntoResponse> {
-    Ok(HtmlTemplate(IndexTemplate))
 }
 
 async fn forum(
@@ -503,59 +494,4 @@ async fn register_post(
     debug!("Registered user: {:?}", user);
 
     Ok(Redirect::to(creds.next.as_ref().map_or("/forum", |v| v)).into_response())
-}
-
-#[derive(Serialize, Deserialize)]
-struct Deploy {
-    repository: DeployRepo,
-}
-#[derive(Serialize, Deserialize)]
-struct DeployRepo {
-    name: String,
-}
-/// No idea if this *actually* works
-async fn deploy_post(Json(deploy): Json<Deploy>) -> Result<impl IntoResponse> {
-    warn!("Deploying {}", deploy.repository.name);
-    let dir = match deploy.repository.name.as_ref() {
-        "dragon-fox.com" => "/var/www/dragon-fox.com",
-        _ => return Err(Error::WrongRepo(deploy.repository.name)),
-    };
-    debug!(
-        "{:?}",
-        Command::new("eval").arg("`ssh-agent`").output().await?
-    );
-    debug!("{:?}", Command::new("cd").arg(dir).output().await?);
-    let pull_output = Command::new("git").arg("pull").output().await?;
-    debug!("{:?}", pull_output);
-    debug!(
-        "{:?}",
-        Command::new("kill").arg("$SSH_AGENT_PID").output().await?
-    );
-
-    if is_sub(pull_output.stdout.as_ref(), b"Already up to date.") {
-        return Ok("Already up to date");
-    }
-
-    debug!(
-        "{:?}",
-        Command::new("cargo")
-            .arg("build")
-            .arg("--release")
-            .current_dir(dir)
-            .output()
-            .await?
-    );
-    debug!(
-        "{:?}",
-        Command::new("systemctl")
-            .arg("restart")
-            .arg("dragon-fox.service")
-            .output()
-            .await?
-    );
-    Ok("Deployed")
-}
-
-fn is_sub<T: PartialEq>(haystack: &[T], needle: &[T]) -> bool {
-    haystack.windows(needle.len()).any(|c| c == needle)
 }

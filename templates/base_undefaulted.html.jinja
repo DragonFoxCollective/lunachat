@@ -10,20 +10,23 @@
 	<meta name="theme-color" content="#03A9F4">
 
 	<meta property="og:type" content="website" />
-	<meta property="og:url" content="https://dragon-fox.com{% block url %}{% endblock %}" />
+	<meta property="og:url" content="https://forum.dragonfox.dev{% block url %}{% endblock %}" />
 	<meta property="og:title" content="{% block title %}{% endblock %}" />
 	<meta property="og:description" content="{% block desc %}{% endblock %}" />
-	<meta property="og:image" content="https://dragon-fox.com{% block thumb %}{% endblock %}" />
+	<meta property="og:image" content="https://forum.dragonfox.dev{% block thumb %}{% endblock %}" />
 	<meta property="og:site_name" content="Dragon & Fox Collective" />
 
 	<meta property="twitter:card" content="summary_large_image" />
-	<meta property="twitter:url" content="https://dragon-fox.com{% block url %}{% endblock %}" />
+	<meta property="twitter:url" content="https://forum.dragonfox.dev{% block url %}{% endblock %}" />
 	<meta property="twitter:title" content="{% block title %}{% endblock %}" />
 	<meta property="twitter:description" content="{% block desc %}{% endblock %}" />
-	<meta property="twitter:image" content="https://dragon-fox.com{% block thumb %}{% endblock %}" />
+	<meta property="twitter:image" content="https://forum.dragonfox.dev{% block thumb %}{% endblock %}" />
 
 	<link rel="icon" type="image/x-icon" href="/static/favicon.ico">
 	<link rel="stylesheet" href="/static/styles.css">
+	<script src="/static/htmx.min.js"></script>
+	<script src="/static/sse.js"></script>
+	<script src="/static/oob-if-exists.js"></script>
 
 	{% block head %}{% endblock %}
 </head>
@@ -48,7 +51,14 @@
 				<a href="/forum">Forum</a>
 			</nav>
 			<div class="header-nav-right">
-				{% block header_right %}{% endblock %}
+				{% block header_right %}
+				{% if let Some(logged_in_user) = logged_in_user %}
+				<p>Logged in as: <a href="/user/{{ logged_in_user.key }}">{{ logged_in_user.username }}</a></p>
+				<a href="/logout">Logout</a>
+				{% else %}
+				<a href="/login">Login</a>
+				{% endif %}
+				{% endblock %}
 			</div>
 		</div>
 	</header>

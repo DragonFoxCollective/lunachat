@@ -8,10 +8,6 @@ use crate::state::user::User;
 pub mod partial;
 
 #[derive(Template)]
-#[template(path = "index.html.jinja")]
-pub struct IndexTemplate;
-
-#[derive(Template)]
 #[template(path = "forum.html.jinja")]
 pub struct ForumTemplate {
     pub logged_in_user: Option<User>,

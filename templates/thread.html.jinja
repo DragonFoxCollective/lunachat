@@ -1,9 +1,8 @@
-{% extends "forum_base.html.jinja" %}
-{% block url %}/forum/thread/{{ key }}{% endblock %}
+{% extends "base.html.jinja" %}
+{% block url %}/thread/{{ key }}{% endblock %}
 {% block content %}
 
-<div id="posts" hx-ext="sse,oob-if-exists" sse-connect="/forum/thread/{{ key }}/sse" sse-swap="message"
-	hx-swap="beforeend">
+<div id="posts" hx-ext="sse,oob-if-exists" sse-connect="/thread/{{ key }}/sse" sse-swap="message" hx-swap="beforeend">
 	{{ posts|safe }}
 </div>
 
