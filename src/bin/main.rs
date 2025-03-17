@@ -136,7 +136,7 @@ pub async fn post_post(HxBoosted(boosted): HxBoosted, template: PostPost) -> imp
     if boosted {
         ().into_response() // Handled by SSE
     } else {
-        Redirect::to(&format!("/thread/{}", template.0)).into_response()
+        Redirect::to(&format!("/thread/{}", template.1)).into_response()
     }
 }
 
