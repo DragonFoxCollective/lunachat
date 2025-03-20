@@ -4,11 +4,11 @@ use async_trait::async_trait;
 use bincode::Options as _;
 use derive_more::{Deref, DerefMut};
 use key::HighestKeys;
+use return_ok::{ok_some, option_ok, some_ok};
 use serde::{Deserialize, Serialize};
 use sled::{Db, IVec, Tree};
 
 use crate::error::Result;
-use crate::{ok_some, option_ok, some_ok};
 
 pub mod key;
 pub mod post;

@@ -1,10 +1,10 @@
 use bincode::Options as _;
 use itertools::Itertools;
+use return_ok::option_ok;
 use serde::{Deserialize, Serialize};
 use sled::Db;
 
 use crate::error::{Error, Result};
-use crate::option_ok;
 use crate::state::post::{Post, PostKey};
 use crate::state::thread::{Thread, Threads};
 use crate::state::user::{User, UserKey};

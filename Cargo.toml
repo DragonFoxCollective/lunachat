@@ -23,6 +23,7 @@ futures = "0.3.31"
 itertools = "0.14.0"
 lazy_static = "1.5.0"
 password-auth = "1.0.0"
+return-ok = { git = "https://github.com/DragonFoxCollective/return-ok.git" }
 serde = { version = "1.0.217", features = ["derive"] }
 sled = "0.34.7"
 thiserror = "2.0.11"

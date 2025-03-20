@@ -2,14 +2,14 @@ use std::fmt::Display;
 
 use async_trait::async_trait;
 use bincode::Options as _;
+use return_ok::ok_some;
 use serde::{Deserialize, Serialize};
 use sled::{Db, IVec, Tree};
 
 use crate::error::Result;
-use crate::ok_some;
 
 use super::key::{HighestKeys, Key};
-use super::{DbTreeLookup, TableType, BINCODE};
+use super::{BINCODE, DbTreeLookup, TableType};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct User {

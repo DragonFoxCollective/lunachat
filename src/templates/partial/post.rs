@@ -7,11 +7,11 @@ use axum::response::{IntoResponse, Sse};
 use axum::{Extension, RequestPartsExt as _};
 use bincode::Options as _;
 use futures::stream;
+use return_ok::some_or_continue;
 use serde::{Deserialize, Serialize};
 use sled::Subscriber;
 
 use crate::error::{Error, Result};
-use crate::some_or_continue;
 use crate::state::post::{Post, PostKey, Posts};
 use crate::state::thread::ThreadKey;
 use crate::state::user::{User, Users};

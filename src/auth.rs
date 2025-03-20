@@ -3,12 +3,12 @@ use std::collections::HashSet;
 use async_trait::async_trait;
 use axum_login::{AuthUser, AuthnBackend, AuthzBackend, UserId};
 use password_auth::verify_password;
+use return_ok::ok_some;
 use serde::Deserialize;
 
 use crate::error::{Error, Result};
-use crate::ok_some;
-use crate::state::user::{User, UserKey, Users};
 use crate::state::DbTreeLookup as _;
+use crate::state::user::{User, UserKey, Users};
 
 impl AuthUser for User {
     type Id = UserKey;
