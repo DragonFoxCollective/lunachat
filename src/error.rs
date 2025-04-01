@@ -50,6 +50,10 @@ pub enum Error {
     FormRejected(#[from] axum::extract::rejection::FormRejection),
     #[error("auth not found")]
     AuthNotFound,
+    #[error("connection closed")]
+    ConnectionClosed,
+    #[error("internal send error: {0}")]
+    SendError(#[from] tokio::sync::mpsc::error::SendError<crate::comm::Response>),
 }
 
 impl IntoResponse for Error {

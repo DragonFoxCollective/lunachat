@@ -6,7 +6,7 @@ use sled::{Db, IVec, Tree};
 
 use crate::error::{Error, Result};
 
-use super::{TableType, BINCODE};
+use super::{BINCODE, TableType};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Key(u64);
@@ -29,6 +29,22 @@ impl TryFrom<IVec> for Key {
 impl From<Key> for IVec {
     fn from(key: Key) -> Self {
         key.0.to_be_bytes().as_ref().into()
+    }
+}
+
+pub enum GlobalKey {
+    User(Key),
+    Thread(Key),
+    Post(Key),
+}
+
+impl Display for GlobalKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GlobalKey::User(key) => write!(f, "User({})", key),
+            GlobalKey::Thread(key) => write!(f, "Thread({})", key),
+            GlobalKey::Post(key) => write!(f, "Post({})", key),
+        }
     }
 }
 

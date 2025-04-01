@@ -11,6 +11,7 @@ use crate::state::user::Users;
 use crate::state::{DbTreeLookup, TableType, Versions};
 
 pub mod auth;
+pub mod comm;
 pub mod error;
 pub mod state;
 pub mod templates;

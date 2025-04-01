@@ -6,6 +6,7 @@ use axum_htmx::HxBoosted;
 use axum_login::{AuthzBackend as _, permission_required};
 use itertools::Itertools;
 use lunachat::auth::{AuthSession, Backend, Permission};
+use lunachat::comm::{Request, Response, StreamRW};
 use lunachat::error::Result;
 use lunachat::state::post::PostKey;
 use lunachat::state::thread::ThreadKey;
@@ -15,6 +16,7 @@ use lunachat::templates::{
     ForumGet, HtmlTemplate, LoginGet, LoginPost, LogoutPost, PostPost, RegisterPost, ThreadGet,
     ThreadPost, UserGet,
 };
+use tokio::net::{TcpListener, TcpStream};
 use tower_http::services::ServeDir;
 use tracing::debug;
 
@@ -23,6 +25,20 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter("lunachat=trace")
         .init();
+
+    {
+        let user_server = TcpStream::connect("127.0.0.1:8006").await?;
+        let mut user_server = tokio::io::BufStream::new(user_server);
+
+        for request in [
+            Request::Render(PostKey::default()),
+            Request::Track(PostKey::default()),
+        ] {
+            Request::write(&request, &mut user_server).await?;
+            let response = Response::read(&mut user_server).await?;
+            println!("{:?}", response);
+        }
+    }
 
     let app = Router::new()
         .route("/thread", post(thread_post))
@@ -42,9 +58,9 @@ async fn main() -> Result<()> {
         .route("/logout", get(logout_post))
         .route("/register", post(register_post))
         .nest_service("/static", ServeDir::new("static"));
-    let app = lunachat::apply_middleware(app).await?;
+    // let app = lunachat::apply_middleware(app).await?;
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8002").await?;
+    let listener = TcpListener::bind("0.0.0.0:8002").await?;
     axum::serve(listener, app).await?;
 
     Ok(())
