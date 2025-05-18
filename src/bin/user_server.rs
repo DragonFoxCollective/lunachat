@@ -25,7 +25,7 @@ async fn handle_connection(stream: TcpStream) -> Result<()> {
     let writer = BufWriter::new(writer);
     let (send, recv) = mpsc::unbounded_channel::<Response>();
 
-    tokio::try_join!(read_requests(reader, send), write_responses(writer, recv),).map(|_| ())
+    tokio::try_join!(read_requests(reader, send), write_responses(writer, recv)).map(|_| ())
 }
 
 async fn read_requests(
