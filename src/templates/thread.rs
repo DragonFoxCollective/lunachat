@@ -144,8 +144,7 @@ where
             .iter()
             .values()
             .filter_map(|post| post.ok())
-            .filter(|post| post.thread == thread_key)
-            .last()
+            .rfind(|post| post.thread == thread_key)
             .ok_or(Error::ThreadHasNoPosts(thread_key))?
             .key;
         let thread_key = posts
