@@ -19,10 +19,29 @@ services:
     environment:
       DATABASE_URL: postgres://${DB_USERNAME}:${DB_PASSWORD}@database:5432/${DB_DATABASE}
       RUST_BACKTRACE: 1
-    ports:
-      - 80:80
     depends_on:
       - database
 
+  caddy:
+    image: caddy:latest
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    env_file: .env
+    environment:
+      SITE_HOSTNAME: ${SITE_HOSTNAME}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./config/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - lunachat
+
 volumes:
+  caddy_data:
+  caddy_config:
   postgres_data:
