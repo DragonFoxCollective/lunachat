@@ -2,12 +2,10 @@ use axum::extract::{FromRequestParts, Path};
 use axum::http::request::Parts;
 use axum::{Extension, RequestPartsExt as _};
 
-use crate::error::{Error, Result};
-use crate::state::DbTreeLookup as _;
-use crate::state::user::{User, UserKey, Users};
+use crate::prelude::*;
 
 pub struct UserGet {
-    pub user: User,
+    pub user: user::Model,
 }
 
 impl<S> FromRequestParts<S> for UserGet
@@ -17,10 +15,10 @@ where
     type Rejection = Error;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self> {
-        let Extension(users) = parts.extract::<Extension<Users>>().await?;
-        let Path(user_key) = parts.extract::<Path<UserKey>>().await?;
+        let Extension(db) = parts.extract::<Extension<DatabaseConnection>>().await?;
+        let Path(user_id) = parts.extract::<Path<user::Id>>().await?;
 
-        let user = users.get(user_key)?.ok_or(Error::UserNotFound(user_key))?;
+        let user = db.get_user(user_id).await?;
         Ok(UserGet { user })
     }
 }

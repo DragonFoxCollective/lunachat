@@ -1,0 +1,34 @@
+[package]
+name = "lunachat"
+version = "0.1.0"
+edition = "2024"
+default-run = "main"
+
+[dependencies]
+ammonia = "4.0.0"
+argon2 = { version = "0.5.3", features = ["std"] }
+askama = "0.16.0"
+async-trait = "0.1.86"
+awesome_axum_responses = { git = "https://github.com/DragonFoxCollective/awesome_axum_responses.git" }
+axum = { version = "0.8.9", features = ["ws"] }
+axum-htmx = "0.7.0"
+axum-login = "0.17.0"
+derive_more = { version = "2.0.1", features = ["deref", "deref_mut", "full"] }
+futures = "0.3.31"
+itertools = "0.14.0"
+lazy_static = "1.5.0"
+password-auth = "1.0.0"
+return-ok = { git = "https://github.com/DragonFoxCollective/return-ok.git" }
+sea-orm = { version = "^2.0.0-rc.38", features = [
+  "entity-registry",
+  "macros",
+  "runtime-tokio-rustls",
+  "schema-sync",
+  "sqlx-postgres"
+] }
+serde = { version = "1.0.217", features = ["derive"] }
+tokio = { version = "1.43.0", features = ["full"] }
+tokio-stream = "0.1.17"
+tower-http = { version = "0.6.2", features = ["fs"] }
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }

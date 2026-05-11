@@ -1,20 +1,19 @@
 use std::collections::HashSet;
 
 use async_trait::async_trait;
-use axum_login::{AuthUser, AuthnBackend, AuthzBackend, UserId};
+use axum_login::{AuthUser, AuthnBackend, AuthzBackend};
+use derive_more::Display;
 use password_auth::verify_password;
 use return_ok::ok_some;
 use serde::Deserialize;
 
-use crate::error::{Error, Result};
-use crate::state::DbTreeLookup as _;
-use crate::state::user::{User, UserKey, Users};
+use crate::prelude::*;
 
-impl AuthUser for User {
-    type Id = UserKey;
+impl AuthUser for user::Model {
+    type Id = user::Id;
 
     fn id(&self) -> Self::Id {
-        self.key
+        self.id
     }
 
     fn session_auth_hash(&self) -> &[u8] {
@@ -24,12 +23,12 @@ impl AuthUser for User {
 
 #[derive(Clone)]
 pub struct Backend {
-    users: Users,
+    db: DatabaseConnection,
 }
 
 impl Backend {
-    pub fn new(users: Users) -> Self {
-        Self { users }
+    pub fn new(db: DatabaseConnection) -> Self {
+        Self { db }
     }
 }
 
@@ -45,14 +44,34 @@ pub enum Permission {
     Post,
 }
 
+#[derive(Debug, Display)]
+pub struct AuthError(pub Error);
+
+impl std::error::Error for AuthError {}
+
+impl From<sea_orm::DbErr> for AuthError {
+    fn from(err: sea_orm::DbErr) -> Self {
+        AuthError(err.into())
+    }
+}
+
+impl From<tokio::task::JoinError> for AuthError {
+    fn from(err: tokio::task::JoinError) -> Self {
+        AuthError(err.into())
+    }
+}
+
 #[async_trait]
 impl AuthnBackend for Backend {
-    type User = User;
+    type User = user::Model;
     type Credentials = Credentials;
-    type Error = Error;
+    type Error = AuthError;
 
-    async fn authenticate(&self, creds: Self::Credentials) -> Result<Option<Self::User>> {
-        let user: Self::User = ok_some!(self.users.get_by_username(&creds.username));
+    async fn authenticate(
+        &self,
+        creds: Self::Credentials,
+    ) -> Result<Option<Self::User>, Self::Error> {
+        let user = ok_some!(self.db.find_user_by_username(creds.username).await);
 
         Ok(tokio::task::spawn_blocking(|| {
             if verify_password(creds.password, &user.password).is_ok() {
@@ -64,8 +83,11 @@ impl AuthnBackend for Backend {
         .await?)
     }
 
-    async fn get_user(&self, user_id: &UserId<Self>) -> Result<Option<Self::User>> {
-        Ok(Some(ok_some!(self.users.get(*user_id))))
+    async fn get_user(
+        &self,
+        user_id: &axum_login::UserId<Self>,
+    ) -> Result<Option<Self::User>, Self::Error> {
+        Ok(Some(ok_some!(self.db.find_user(*user_id).await)))
     }
 }
 
@@ -73,7 +95,10 @@ impl AuthnBackend for Backend {
 impl AuthzBackend for Backend {
     type Permission = Permission;
 
-    async fn get_user_permissions(&self, _user: &Self::User) -> Result<HashSet<Self::Permission>> {
+    async fn get_user_permissions(
+        &self,
+        _user: &Self::User,
+    ) -> Result<HashSet<Self::Permission>, Self::Error> {
         let mut permissions = HashSet::new();
         permissions.insert(Permission::Post);
         Ok(permissions)
