@@ -2,8 +2,8 @@
 {% block content %}
 
 {% if let Some(avatar) = user.avatar %}
-<img src="{{ avatar }}" alt="{{ user.username }}'s Profile Picture" onerror="this.style.display='none'">
+<img src="{{ avatar }}" alt="{{ user.username }}'s Profile Picture" class="avatar" onerror="this.style.display='none'">
 {% endif %}
-<p>{{ user.username }}</p>
+<h1 class="username">{{ user.username }}</h1>
 
 {% endblock %}

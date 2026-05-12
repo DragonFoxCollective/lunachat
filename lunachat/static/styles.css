@@ -1,0 +1,14 @@
+.post,
+.thread {
+    border: black 1px solid;
+}
+
+.post-metadata {
+    color: slategray;
+}
+
+.username,
+.thread-name,
+.post-date {
+    color: black;
+}
