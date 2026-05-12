@@ -13,10 +13,8 @@ use crate::prelude::*;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct PartialPostGet {
-    pub id: post::Id,
+    pub post: post::Model,
     pub author: user::Model,
-    pub body: String,
-    pub sse: bool,
 }
 
 pub struct PostSse {
@@ -45,12 +43,7 @@ impl PostSse {
                     continue;
                 }
                 let author = db.get_user(post.author_id).await?;
-                let template = PartialPostGet {
-                    id: post.id,
-                    body: post.body,
-                    author,
-                    sse: true,
-                };
+                let template = PartialPostGet { post, author };
                 let data = mapper(template)?;
                 let event = Event::default().data(data);
                 return Ok(event);

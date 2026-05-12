@@ -13,11 +13,9 @@ use crate::prelude::*;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct PartialThreadGet {
-    pub id: thread::Id,
-    pub title: String,
-    pub body: String,
+    pub thread: thread::Model,
+    pub post: post::Model,
     pub author: user::Model,
-    pub sse: bool,
 }
 
 pub struct ThreadSse {
@@ -43,11 +41,9 @@ impl ThreadSse {
                 let post = db.get_root_post_of(thread.id).await?;
                 let author = db.get_user(post.author_id).await?;
                 let template = PartialThreadGet {
-                    id: thread.id,
-                    title: thread.title,
-                    body: post.body,
+                    thread,
+                    post,
                     author,
-                    sse: true,
                 };
                 let data = mapper(template)?;
                 let event = Event::default().data(data);

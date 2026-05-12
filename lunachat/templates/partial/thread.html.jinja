@@ -1,5 +1,5 @@
-<div id="thread_{{ id }}" style="border: black 1px solid" {% if sse %} hx-swap-oob="if-exists" {% endif %}>
-	<p><a href="/thread/{{ id }}">{{ title }}</a>
-		by <a href="/user/{{ author.id }}">{{ author.username }}</a></p>
-	<p class="thread-body">{{ body }}</p>
+<div id="thread_{{ thread.id }}" style="border: black 1px solid" {% if sse %} hx-swap-oob="if-exists" {% endif %}>
+	<p><a href="/thread/{{ thread.id }}">{{ thread.title }}</a>
+		by <a href="/user/{{ author.id }}">{{ author.username }}</a> at {{ post.created_at }}</p>
+	<p class="thread-body">{{ post.body }}</p>
 </div>

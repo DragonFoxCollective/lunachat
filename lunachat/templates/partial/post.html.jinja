@@ -1,8 +1,8 @@
-<div id="post_{{ id }}" style="border: black 1px solid" {% if sse %} hx-swap-oob="if-exists" {% endif %}>
+<div id="post_{{ post.id }}" style="border: black 1px solid" {% if sse %} hx-swap-oob="if-exists" {% endif %}>
 	{% if let Some(avatar) = author.avatar %}
 	<img src="{{ avatar }}" alt="{{ author.username }}'s Profile Picture" onerror="this.style.display='none'">
 	{% endif %}
-	<p><a href="/user/{{ author.id }}">{{ author.username }}</a></p>
+	<p><a href="/user/{{ author.id }}">{{ author.username }}</a> at {{ post.created_at }}</p>
 
-	<p>{{ body|safe }}</p>
+	<p>{{ post.body | safe }}</p>
 </div>

@@ -56,11 +56,10 @@ async fn forum(auth: AuthSession, forum: ForumGet) -> Result<impl IntoResponse> 
             .iter()
             .cloned()
             .map(|template| PartialThreadTemplate {
-                id: template.id,
-                title: template.title,
-                body: template.body,
+                thread: template.thread,
+                post: template.post,
                 author: template.author,
-                sse: template.sse,
+                sse: false,
             })
             .join("\n"),
         can_post: match auth.user {
@@ -73,11 +72,10 @@ async fn forum(auth: AuthSession, forum: ForumGet) -> Result<impl IntoResponse> 
 async fn forum_sse(sse: ThreadSse) -> impl IntoResponse {
     sse.into_sse(|template| {
         Ok(PartialThreadTemplate {
-            id: template.id,
-            title: template.title,
-            body: template.body,
+            thread: template.thread,
+            post: template.post,
             author: template.author,
-            sse: template.sse,
+            sse: true,
         }
         .render()?)
     })
@@ -92,16 +90,15 @@ pub async fn thread_post(thread: ThreadPost) -> impl IntoResponse {
 async fn thread(auth: AuthSession, thread: ThreadGet) -> Result<impl IntoResponse> {
     Ok(HtmlTemplate(ThreadTemplate {
         logged_in_user: auth.user.clone(),
-        id: thread.id,
+        thread: thread.thread,
         posts: thread
             .posts
             .iter()
             .cloned()
             .map(|template| PartialPostTemplate {
-                id: template.id,
+                post: template.post,
                 author: template.author,
-                body: template.body,
-                sse: template.sse,
+                sse: false,
             })
             .join("\n"),
         can_post: match auth.user {
@@ -114,10 +111,9 @@ async fn thread(auth: AuthSession, thread: ThreadGet) -> Result<impl IntoRespons
 async fn thread_sse(sse: PostSse) -> impl IntoResponse {
     sse.into_sse(|template| {
         Ok(PartialPostTemplate {
-            id: template.id,
+            post: template.post,
             author: template.author,
-            body: template.body,
-            sse: template.sse,
+            sse: true,
         }
         .render()?)
     })
@@ -191,7 +187,7 @@ pub struct ForumTemplate {
 #[template(path = "thread.html.jinja")]
 pub struct ThreadTemplate {
     pub logged_in_user: Option<user::Model>,
-    pub id: thread::Id,
+    pub thread: thread::Model,
     pub posts: String,
     pub can_post: bool,
 }
@@ -213,9 +209,8 @@ pub struct UserTemplate {
 #[derive(Template)]
 #[template(path = "partial/thread.html.jinja")]
 pub struct PartialThreadTemplate {
-    pub id: thread::Id,
-    pub title: String,
-    pub body: String,
+    pub thread: thread::Model,
+    pub post: post::Model,
     pub author: user::Model,
     pub sse: bool,
 }
@@ -223,8 +218,7 @@ pub struct PartialThreadTemplate {
 #[derive(Template)]
 #[template(path = "partial/post.html.jinja")]
 pub struct PartialPostTemplate {
-    pub id: post::Id,
+    pub post: post::Model,
     pub author: user::Model,
-    pub body: String,
     pub sse: bool,
 }

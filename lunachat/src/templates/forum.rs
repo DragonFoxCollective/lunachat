@@ -24,14 +24,12 @@ where
             .await?
             .into_iter()
             .map_async(async |thread| {
-                let root = db.get_root_post_of(thread.id).await?;
-                let author = db.get_user(root.author_id).await?;
+                let post = db.get_root_post_of(thread.id).await?;
+                let author = db.get_user(post.author_id).await?;
                 Ok(partial::PartialThreadGet {
-                    id: thread.id,
-                    title: thread.title,
-                    body: root.body,
+                    thread,
+                    post,
                     author,
-                    sse: false,
                 })
             })
             .await

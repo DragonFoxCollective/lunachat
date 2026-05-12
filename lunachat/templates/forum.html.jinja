@@ -2,14 +2,14 @@
 {% block content %}
 
 <div id="threads" hx-ext="sse,oob-if-exists" sse-connect="/sse" sse-swap="message" hx-swap="beforeend">
-	{{ threads|safe }}
+	{{ threads | safe }}
 </div>
 
 {% if can_post %}
 <form action="/thread" method="post" hx-boost="true" hx-swap="none show:none" hx-push-url="false"
 	hx-on::after-request="if(event.detail.successful) this.reset()">
 	<input type="text" name="title" placeholder="Thread title" required />
-	<input type="text" name="body" placeholder="What's on your mind?" required />
+	<textarea name="body" placeholder="What's on your mind?" required></textarea>
 	<input type="submit" value="Post" />
 </form>
 {% endif %}

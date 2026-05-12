@@ -9,7 +9,7 @@ use crate::prelude::*;
 use crate::sanitizer::Sanitizer;
 
 pub struct ThreadGet {
-    pub id: thread::Id,
+    pub thread: thread::Model,
     pub posts: Vec<partial::PartialPostGet>,
 }
 
@@ -23,21 +23,16 @@ where
         let Extension(db) = parts.extract::<Extension<DatabaseConnection>>().await?;
         let Path(thread_id) = parts.extract::<Path<thread::Id>>().await?;
 
-        let (_thread, posts, authors) = db.get_thread_and_posts(thread_id).await?;
+        let (thread, posts, authors) = db.get_thread_and_posts(thread_id).await?;
         let posts = posts
             .into_iter()
             .map(|post| partial::PartialPostGet {
-                id: post.id,
                 author: authors[&post.author_id].clone(),
-                body: post.body,
-                sse: false,
+                post,
             })
             .collect::<Vec<_>>();
 
-        Ok(ThreadGet {
-            id: thread_id,
-            posts,
-        })
+        Ok(ThreadGet { thread, posts })
     }
 }
 
@@ -81,7 +76,6 @@ where
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct PostSubmission {
-    pub parent_id: post::Id,
     pub body: String,
 }
 
@@ -110,7 +104,6 @@ where
                 body,
                 author_id: auth.user.ok_or(anyhow!("Not logged in"))?.id,
                 thread_id,
-                parent_id: Some(post.parent_id),
             })
             .await?;
 

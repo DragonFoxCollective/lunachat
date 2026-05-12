@@ -1,7 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
 use sea_orm::ActiveValue::{NotSet, Set};
-use sea_orm::{ActiveModelTrait, ColumnTrait, DbErr, IntoActiveModel, ModelTrait, QueryFilter};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, DbErr, IntoActiveModel, ModelTrait, QueryFilter, QueryOrder,
+};
 
 use crate::prelude::*;
 
@@ -91,7 +93,7 @@ impl DatabaseConnectionExt for DatabaseConnection {
     async fn get_root_post_of(&self, thread_id: thread::Id) -> Result<post::Model> {
         Ok(post::Entity::find()
             .filter(post::Column::ThreadId.eq(thread_id))
-            .filter(post::Column::ParentId.is_null())
+            .order_by_asc(post::Column::CreatedAt)
             .one(self)
             .await?
             .ok_or(anyhow!("Thread {thread_id} has no root post"))?)
@@ -124,7 +126,11 @@ impl DatabaseConnectionExt for DatabaseConnection {
             .one(self)
             .await?
             .ok_or(anyhow!("Thread {id} not found"))?;
-        let posts = thread.find_related(post::Entity).all(self).await?;
+        let posts = thread
+            .find_related(post::Entity)
+            .order_by_asc(post::Column::CreatedAt)
+            .all(self)
+            .await?;
         let authors = posts
             .iter()
             .map(|post| post.author_id)
@@ -158,7 +164,6 @@ impl DatabaseConnectionExt for DatabaseConnection {
             body,
             author_id,
             thread_id: thread.id,
-            parent_id: None,
         }
         .into_active_model()
         .insert(self)

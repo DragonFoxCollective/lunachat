@@ -31,17 +31,6 @@ pub struct Model {
     pub thread_id: thread::Id,
     #[sea_orm(belongs_to, relation_reverse = "Posts", from = "thread_id", to = "id")]
     pub thread: HasOne<thread::Entity>,
-    pub parent_id: Option<Id>,
-    #[sea_orm(
-        self_ref,
-        relation_enum = "Parent",
-        relation_reverse = "Children",
-        from = "parent_id",
-        to = "id"
-    )]
-    pub parent: HasOne<Entity>,
-    #[sea_orm(self_ref, relation_enum = "Children", relation_reverse = "Parent")]
-    pub children: HasMany<Entity>,
 }
 
 #[derive(DeriveIntoActiveModel)]
@@ -50,7 +39,6 @@ pub struct NewModel {
     pub body: String,
     pub author_id: user::Id,
     pub thread_id: thread::Id,
-    pub parent_id: Option<Id>,
 }
 
 #[async_trait]

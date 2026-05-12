@@ -1,14 +1,16 @@
 {% extends "base.html.jinja" %}
 {% block content %}
 
-<div id="posts" hx-ext="sse,oob-if-exists" sse-connect="/thread/{{ id }}/sse" sse-swap="message" hx-swap="beforeend">
-	{{ posts|safe }}
+<h1>{{ thread.title | safe }}</h1>
+
+<div id="posts" hx-ext="sse,oob-if-exists" sse-connect="/thread/{{ thread.id }}/sse" sse-swap="message" hx-swap="beforeend">
+	{{ posts | safe }}
 </div>
 
 {% if can_post %}
 <form method="post" hx-boost="true" hx-swap="none show:none" hx-push-url="false"
 	hx-on::after-request="if(event.detail.successful) this.reset()">
-	<input type="text" name="body" placeholder="What's on your mind?" required />
+	<textarea name="body" placeholder="What's on your mind?" required></textarea>
 	<input type="submit" value="Post" />
 </form>
 {% endif %}
