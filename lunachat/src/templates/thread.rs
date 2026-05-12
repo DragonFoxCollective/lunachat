@@ -62,16 +62,17 @@ where
             .map_err(|_| anyhow!("Auth not found"))?;
         let Extension(db) = req.extract_parts::<Extension<DatabaseConnection>>().await?;
         let Extension(sanitizer) = req.extract_parts::<Extension<Sanitizer>>().await?;
-        let Form(thread) = req.extract::<Form<ThreadSubmission>, _>().await?;
+        let Form(thread_form) = req.extract::<Form<ThreadSubmission>, _>().await?;
 
-        let thread = thread::ActiveModel::builder()
-            .set_title(sanitizer.clean(&thread.title))
-            .add_post(
-                post::ActiveModel::builder()
-                    .set_author_id(auth.user.ok_or(anyhow!("Not logged in"))?.id)
-                    .set_body(sanitizer.clean(&thread.body)),
-            )
-            .insert(&db)
+        let title = sanitizer.clean(&thread_form.title).to_string();
+        let body = sanitizer.clean(&thread_form.body).to_string();
+
+        let (thread, _post) = db
+            .insert_thread(thread::NewModel {
+                title,
+                body,
+                author_id: auth.user.ok_or(anyhow!("Not logged in"))?.id,
+            })
             .await?;
 
         Ok(ThreadPost(thread.id))
@@ -102,12 +103,15 @@ where
         let Path(thread_id) = req.extract_parts::<Path<thread::Id>>().await?;
         let Form(post) = req.extract::<Form<PostSubmission>, _>().await?;
 
-        let post = post::ActiveModel::builder()
-            .set_author_id(auth.user.ok_or(anyhow!("Not logged in"))?.id)
-            .set_body(sanitizer.clean(&post.body))
-            .set_parent_id(Some(post.parent_id))
-            .set_thread_id(thread_id)
-            .insert(&db)
+        let body = sanitizer.clean(&post.body).to_string();
+
+        let post = db
+            .insert_post(post::NewModel {
+                body,
+                author_id: auth.user.ok_or(anyhow!("Not logged in"))?.id,
+                thread_id,
+                parent_id: Some(post.parent_id),
+            })
             .await?;
 
         Ok(PostPost(post.id, thread_id))

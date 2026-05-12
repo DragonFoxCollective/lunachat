@@ -18,8 +18,19 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: Id,
     pub title: String,
-    #[sea_orm(has_many, relation_enum = "Posts")]
+    #[sea_orm(
+        has_many,
+        relation_enum = "Posts",
+        on_delete = "Cascade",
+        on_update = "Cascade"
+    )]
     pub posts: HasMany<super::post::Entity>,
+}
+
+pub struct NewModel {
+    pub title: String,
+    pub body: String,
+    pub author_id: user::Id,
 }
 
 #[async_trait]

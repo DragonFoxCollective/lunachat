@@ -18,6 +18,12 @@ pub struct Model {
     pub posts: HasMany<post::Entity>,
 }
 
+#[derive(DeriveIntoActiveModel)]
+pub struct NewModel {
+    pub username: String,
+    pub password: String,
+}
+
 impl ActiveModelBehavior for ActiveModel {}
 
 #[derive(

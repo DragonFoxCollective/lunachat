@@ -18,7 +18,7 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: Id,
     pub body: String,
-    pub created_at: DateTime,
+    pub created_at: DateTimeUtc,
     pub author_id: user::Id,
     #[sea_orm(
         belongs_to,
@@ -42,6 +42,15 @@ pub struct Model {
     pub parent: HasOne<Entity>,
     #[sea_orm(self_ref, relation_enum = "Children", relation_reverse = "Parent")]
     pub children: HasMany<Entity>,
+}
+
+#[derive(DeriveIntoActiveModel)]
+#[sea_orm(set(created_at = "chrono::Utc::now()"))]
+pub struct NewModel {
+    pub body: String,
+    pub author_id: user::Id,
+    pub thread_id: thread::Id,
+    pub parent_id: Option<Id>,
 }
 
 #[async_trait]

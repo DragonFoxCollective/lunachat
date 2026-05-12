@@ -13,6 +13,7 @@ awesome_axum_responses = { git = "https://github.com/DragonFoxCollective/awesome
 axum = { version = "0.8.9", features = ["ws"] }
 axum-htmx = "0.7.0"
 axum-login = "0.17.0"
+chrono = "0.4.44"
 derive_more = { version = "2.0.1", features = ["deref", "deref_mut", "full"] }
 futures = "0.3.31"
 itertools = "0.14.0"

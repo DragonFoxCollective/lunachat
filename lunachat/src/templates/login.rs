@@ -107,12 +107,12 @@ where
             .hash_password(creds.password.as_bytes(), salt)?
             .to_string();
 
-        let user = user::ActiveModel::builder()
-            .set_username(creds.username.clone())
-            .set_password(password)
-            .insert(&db)
-            .await?
-            .into();
+        let user = db
+            .insert_user(user::NewModel {
+                username: creds.username.clone(),
+                password,
+            })
+            .await?;
 
         auth.login(&user).await.map_err(Box::new)?;
 

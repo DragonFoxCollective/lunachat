@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
-use sea_orm::{ColumnTrait, DbErr, ModelTrait, QueryFilter};
+use sea_orm::ActiveValue::{NotSet, Set};
+use sea_orm::{ActiveModelTrait, ColumnTrait, DbErr, IntoActiveModel, ModelTrait, QueryFilter};
 
 use crate::prelude::*;
 
@@ -26,9 +27,11 @@ pub trait DatabaseConnectionExt {
         &self,
         username: impl Into<String>,
     ) -> impl Future<Output = Result<Option<user::Model>, DbErr>>;
+    fn insert_user(&self, user: user::NewModel) -> impl Future<Output = Result<user::Model>>;
 
     fn get_post(&self, id: post::Id) -> impl Future<Output = Result<post::Model>>;
     fn get_root_post_of(&self, thread_id: thread::Id) -> impl Future<Output = Result<post::Model>>;
+    fn insert_post(&self, post: post::NewModel) -> impl Future<Output = Result<post::Model>>;
 
     fn get_thread(&self, id: thread::Id) -> impl Future<Output = Result<thread::Model>>;
     fn get_thread_and_posts(
@@ -41,6 +44,10 @@ pub trait DatabaseConnectionExt {
             HashMap<user::Id, user::Model>,
         )>,
     >;
+    fn insert_thread(
+        &self,
+        thread: thread::NewModel,
+    ) -> impl Future<Output = Result<(thread::Model, post::Model)>>;
 }
 
 impl DatabaseConnectionExt for DatabaseConnection {
@@ -61,6 +68,10 @@ impl DatabaseConnectionExt for DatabaseConnection {
             .one(self)
             .await?
             .ok_or(anyhow!("User with username {username} not found"))?)
+    }
+
+    async fn insert_user(&self, user: user::NewModel) -> Result<user::Model> {
+        Ok(user.into_active_model().insert(self).await?)
     }
 
     async fn find_user_by_username(
@@ -84,6 +95,14 @@ impl DatabaseConnectionExt for DatabaseConnection {
             .one(self)
             .await?
             .ok_or(anyhow!("Thread {thread_id} has no root post"))?)
+    }
+
+    async fn insert_post(&self, post: post::NewModel) -> Result<post::Model> {
+        Ok(post
+            .into_active_model()
+            .into_active_model()
+            .insert(self)
+            .await?)
     }
 
     async fn get_thread(&self, id: thread::Id) -> Result<thread::Model> {
@@ -118,5 +137,32 @@ impl DatabaseConnectionExt for DatabaseConnection {
             .map(|author| (author.id, author))
             .collect::<HashMap<_, _>>();
         Ok((thread, posts, authors))
+    }
+
+    async fn insert_thread(
+        &self,
+        thread: thread::NewModel,
+    ) -> Result<(thread::Model, post::Model)> {
+        let thread::NewModel {
+            title,
+            body,
+            author_id,
+        } = thread;
+        let thread = thread::ActiveModel {
+            id: NotSet,
+            title: Set(title),
+        }
+        .insert(self)
+        .await?;
+        let post = post::NewModel {
+            body,
+            author_id,
+            thread_id: thread.id,
+            parent_id: None,
+        }
+        .into_active_model()
+        .insert(self)
+        .await?;
+        Ok((thread, post))
     }
 }
