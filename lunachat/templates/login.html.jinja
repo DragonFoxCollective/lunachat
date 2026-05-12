@@ -13,7 +13,7 @@
 	{% endif %}
 </form>
 
-{% if let Some(error) = error %}
+{% if let Some(error) = login_error %}
 <div style="color: red">{{ error }}</div>
 {% endif %}
 

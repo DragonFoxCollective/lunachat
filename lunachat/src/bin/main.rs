@@ -1,8 +1,11 @@
 use askama::Template;
 use awesome_axum_responses::*;
-use axum::Router;
+use axum::extract::FromRequestParts;
+use axum::http::Uri;
+use axum::http::request::Parts;
 use axum::response::{IntoResponse, Redirect};
 use axum::routing::{get, post};
+use axum::{RequestPartsExt, Router};
 use axum_htmx::HxBoosted;
 use axum_login::{AuthzBackend as _, permission_required};
 use itertools::Itertools;
@@ -48,9 +51,13 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn forum(auth: AuthSession, forum: ForumGet) -> Result<impl IntoResponse> {
+async fn forum(
+    logged_in: LoggedIn,
+    auth: AuthSession,
+    forum: ForumGet,
+) -> Result<impl IntoResponse> {
     Ok(HtmlTemplate(ForumTemplate {
-        logged_in_user: auth.user.clone(),
+        logged_in,
         threads: forum
             .threads
             .iter()
@@ -87,9 +94,13 @@ pub async fn thread_post(thread: ThreadPost) -> impl IntoResponse {
     Redirect::to(&format!("/thread/{}", thread.0))
 }
 
-async fn thread(auth: AuthSession, thread: ThreadGet) -> Result<impl IntoResponse> {
+async fn thread(
+    logged_in: LoggedIn,
+    auth: AuthSession,
+    thread: ThreadGet,
+) -> Result<impl IntoResponse> {
     Ok(HtmlTemplate(ThreadTemplate {
-        logged_in_user: auth.user.clone(),
+        logged_in,
         thread: thread.thread,
         posts: thread
             .posts
@@ -129,16 +140,16 @@ pub async fn post_post(HxBoosted(boosted): HxBoosted, post: PostPost) -> impl In
     }
 }
 
-async fn user(auth: AuthSession, user: UserGet) -> impl IntoResponse {
+async fn user(logged_in: LoggedIn, user: UserGet) -> impl IntoResponse {
     HtmlTemplate(UserTemplate {
-        logged_in_user: auth.user.clone(),
+        logged_in,
         user: user.user,
     })
 }
 
 async fn login(login: LoginGet) -> impl IntoResponse {
     HtmlTemplate(LoginTemplate {
-        error: login.error,
+        login_error: login.error,
         next: login.next,
     })
 }
@@ -150,7 +161,7 @@ async fn login_post(login: LoginPost) -> impl IntoResponse {
             Redirect::to(next.as_ref().map_or("/", |v| v)).into_response()
         }
         LoginPost::Failure { error, next } => HtmlTemplate(LoginTemplate {
-            error: Some(error),
+            login_error: Some(error),
             next,
         })
         .into_response(),
@@ -168,57 +179,89 @@ async fn register_post(register: RegisterPost) -> impl IntoResponse {
             Redirect::to(next.as_ref().map_or("/", |v| v)).into_response()
         }
         RegisterPost::Failure { error, next } => HtmlTemplate(LoginTemplate {
-            error: Some(error),
+            login_error: Some(error),
             next,
         })
         .into_response(),
     }
 }
 
+enum LoggedIn {
+    Yes {
+        user: user::Model,
+    },
+    No {
+        url: String,
+        login_error: Option<String>,
+    },
+}
+
+impl<S> FromRequestParts<S> for LoggedIn
+where
+    S: Send + Sync,
+{
+    type Rejection = Error;
+
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self> {
+        let auth = parts
+            .extract::<AuthSession>()
+            .await
+            .map_err(|_| anyhow!("Auth not found"))?;
+        if let Some(user) = auth.user {
+            Ok(LoggedIn::Yes { user })
+        } else {
+            Ok(LoggedIn::No {
+                url: parts.extract::<Uri>().await?.to_string(),
+                login_error: None,
+            })
+        }
+    }
+}
+
 #[derive(Template)]
 #[template(path = "forum.html.jinja")]
-pub struct ForumTemplate {
-    pub logged_in_user: Option<user::Model>,
-    pub threads: String,
-    pub can_post: bool,
+struct ForumTemplate {
+    logged_in: LoggedIn,
+    threads: String,
+    can_post: bool,
 }
 
 #[derive(Template)]
 #[template(path = "thread.html.jinja")]
-pub struct ThreadTemplate {
-    pub logged_in_user: Option<user::Model>,
-    pub thread: thread::Model,
-    pub posts: String,
-    pub can_post: bool,
+struct ThreadTemplate {
+    logged_in: LoggedIn,
+    thread: thread::Model,
+    posts: String,
+    can_post: bool,
 }
 
 #[derive(Template)]
 #[template(path = "login.html.jinja")]
-pub struct LoginTemplate {
-    pub error: Option<String>,
-    pub next: Option<String>,
+struct LoginTemplate {
+    login_error: Option<String>,
+    next: Option<String>,
 }
 
 #[derive(Template)]
 #[template(path = "user.html.jinja")]
-pub struct UserTemplate {
-    pub logged_in_user: Option<user::Model>,
-    pub user: user::Model,
+struct UserTemplate {
+    logged_in: LoggedIn,
+    user: user::Model,
 }
 
 #[derive(Template)]
 #[template(path = "partial/thread.html.jinja")]
-pub struct PartialThreadTemplate {
-    pub thread: thread::Model,
-    pub post: post::Model,
-    pub author: user::Model,
-    pub sse: bool,
+struct PartialThreadTemplate {
+    thread: thread::Model,
+    post: post::Model,
+    author: user::Model,
+    sse: bool,
 }
 
 #[derive(Template)]
 #[template(path = "partial/post.html.jinja")]
-pub struct PartialPostTemplate {
-    pub post: post::Model,
-    pub author: user::Model,
-    pub sse: bool,
+struct PartialPostTemplate {
+    post: post::Model,
+    author: user::Model,
+    sse: bool,
 }

@@ -3,7 +3,12 @@
     border: black 1px solid;
 }
 
-.post-metadata {
+.post-body {
+    white-space: pre-wrap;
+}
+
+.post-metadata,
+.thread-metadata {
     color: slategray;
 }
 
@@ -11,4 +16,9 @@
 .thread-name,
 .post-date {
     color: black;
+}
+
+#header {
+    display: flex;
+    justify-content: space-between;
 }

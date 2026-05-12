@@ -1,6 +1,6 @@
 <div id="thread_{{ thread.id }}" class="thread" {% if sse %} hx-swap-oob="if-exists" {% endif %}>
-	<p class="post-metadata"><a href="/thread/{{ thread.id }}" class="thread-name">{{ thread.title }}</a>
+	<p class="thread-metadata"><a href="/thread/{{ thread.id }}" class="thread-name">{{ thread.title }}</a>
 		by <a href="/user/{{ author.id }}" class="username">{{ author.username }}</a> at <span class="post-date">{{ post.created_at }}</span></p>
 
-	<p class="post-body">{{ post.body }}</p>
+	<p class="thread-body">{{ post.body }}</p>
 </div>
