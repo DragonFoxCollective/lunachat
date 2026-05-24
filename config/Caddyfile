@@ -1,3 +1,0 @@
-{$SITE_HOSTNAME} {
-	reverse_proxy lunachat:80
-}
