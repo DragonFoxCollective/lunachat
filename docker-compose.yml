@@ -1,26 +1,53 @@
 services:
-  database:
+  database: &database
     image: postgres:14-alpine
-    env_file: .env
     environment:
       POSTGRES_USER: ${DB_USERNAME}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_DATABASE}
-    ports:
-      - 5432:5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME}"]
+      start_period: 10s
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    profiles:
+      - prod
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  lunachat:
+  database-dev:
+    <<: *database
+    ports:
+      - 5432:5432
+    profiles:
+      - dev
+
+  lunachat: &lunachat
     build:
       context: .
       dockerfile: ./config/rust.Dockerfile
-    env_file: .env
     environment:
       DATABASE_URL: postgres://${DB_USERNAME}:${DB_PASSWORD}@database:5432/${DB_DATABASE}
       RUST_BACKTRACE: 1
     depends_on:
-      - database
+      database:
+        condition: service_healthy
+    ports:
+      - 8020:80
+    profiles:
+      - prod
+
+  lunachat-dev:
+    <<: *lunachat
+    depends_on:
+      database-dev:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${DB_USERNAME}:${DB_PASSWORD}@database-dev:5432/${DB_DATABASE}
+      RUST_BACKTRACE: 1
+    profiles:
+      - dev
 
 volumes:
   postgres_data:
